@@ -45,7 +45,8 @@ python -m http.server 8080
 
 ## 在线访问
 
-部署后地址会出现在 Vercel 控制台,格式类似 `https://rechoose.vercel.app`。
+- **GitHub:** https://github.com/Kaine665/rechoose
+- **Vercel:** 在 Vercel 导入上述仓库后,会获得类似 `https://rechoose.vercel.app` 的地址
 
 ## 部署
 
