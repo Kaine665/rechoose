@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f3ec">
+  <meta name="description" content="当冲动来临时,帮你重新获得一次选择的机会。">
+  <title>重新选择</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <nav id="tabbar" class="tabbar" hidden>
+    <button class="tab" data-nav="home">
+      <span class="tab-icon">🌱</span><span class="tab-label">此刻</span>
+    </button>
+    <button class="tab" data-nav="plans">
+      <span class="tab-icon">🧭</span><span class="tab-label">计划</span>
+    </button>
+    <button class="tab" data-nav="progress">
+      <span class="tab-icon">🌿</span><span class="tab-label">成长</span>
+    </button>
+  </nav>
+  <script src="js/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>

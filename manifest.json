@@ -1,0 +1,17 @@
+{
+  "name": "重新选择",
+  "short_name": "重新选择",
+  "description": "当冲动来临时,帮你重新获得一次选择的机会。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#f6f3ec",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23f6f3ec'/><text x='50' y='68' font-size='52' text-anchor='middle'>🌱</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
