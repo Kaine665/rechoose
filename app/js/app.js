@@ -1,10 +1,10 @@
 /* =====================================================
-   重新选择 —— 一个帮你在冲动来临时重新获得选择的工具
-   无任何外部依赖,数据全部保存在本机(localStorage)。
+   Rechoose — reclaim a moment of choice when an urge arises.
+   Zero dependencies. Data stays in localStorage.
    ===================================================== */
 "use strict";
 
-/* ---------------- 数据层 ---------------- */
+/* ---------------- Data ---------------- */
 
 const STORE_KEY = "rechoose.data.v1";
 
@@ -32,7 +32,7 @@ function saveData() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(DB));
   } catch (e) {
-    toast("保存失败:存储空间可能已满");
+    toast(t("common.saveFailed"));
   }
 }
 
@@ -40,40 +40,58 @@ let DB = loadData();
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-/* 通用兜底策略:没有任何计划时也能获得帮助 */
-const FALLBACK_PLAN = {
-  id: "__fallback__",
-  emoji: "🛟",
-  name: "通用方法",
-  trigger: "任何时刻",
-  steps: ["离开现在所在的位置", "用冷水洗把脸", "喝一杯水", "到窗边或户外,做 5 次深呼吸"]
-};
+const TEMPLATE_IDS = ["night", "phone", "mood", "morning"];
 
-/* 新建计划时可选的模板 */
-const TEMPLATES = [
-  {
-    emoji: "🌙", name: "夜晚独处", trigger: "晚上一个人 + 拿着手机",
-    steps: ["把手机放到另一个房间", "去洗澡", "直接上床睡觉"],
-    desc: "最常见的高危时刻"
-  },
-  {
-    emoji: "📱", name: "刷手机刷出冲动", trigger: "刷短视频 / 无目的浏览",
-    steps: ["立刻关闭这个 App", "出门或在屋里走 5 分钟", "回来后做一件具体的小事"],
-    desc: "从内容流里抽身"
-  },
-  {
-    emoji: "😔", name: "情绪低落时", trigger: "压力大、孤独、无聊",
-    steps: ["给一个朋友发条消息", "写下现在的感受(一句话就够)", "出门散步 10 分钟"],
-    desc: "冲动常常只是情绪的出口"
-  },
-  {
-    emoji: "🌅", name: "清晨醒来", trigger: "醒来后赖床 + 拿手机",
-    steps: ["立刻坐起来,双脚落地", "拉开窗帘", "直接去洗漱"],
-    desc: "别给冲动留出躺着的时间"
-  }
-];
+function getTemplates() {
+  return TEMPLATE_IDS.map(id => ({
+    id,
+    emoji: ({ night: "🌙", phone: "📱", mood: "😔", morning: "🌅" })[id],
+    name: t(`tpl.${id}.name`),
+    trigger: t(`tpl.${id}.trigger`),
+    desc: t(`tpl.${id}.desc`),
+    steps: [1, 2, 3].map(n => t(`tpl.${id}.step${n}`))
+  }));
+}
 
-/* ---------------- 工具函数 ---------------- */
+function getFallbackPlan() {
+  return {
+    id: "__fallback__",
+    emoji: "🛟",
+    name: t("fallback.name"),
+    trigger: t("fallback.trigger"),
+    steps: [1, 2, 3, 4].map(n => t(`fallback.step${n}`))
+  };
+}
+
+function planFromTemplate(tpl) {
+  return {
+    id: uid(),
+    templateId: tpl.id,
+    emoji: tpl.emoji,
+    name: tpl.name,
+    trigger: tpl.trigger,
+    steps: [...tpl.steps],
+    createdAt: Date.now()
+  };
+}
+
+/* Template-based plans re-resolve copy so language switches stay in sync */
+function localizePlan(plan) {
+  if (!plan) return plan;
+  if (plan.id === "__fallback__") return getFallbackPlan();
+  if (!plan.templateId) return plan;
+  const tpl = getTemplates().find(x => x.id === plan.templateId);
+  if (!tpl) return plan;
+  return {
+    ...plan,
+    emoji: tpl.emoji,
+    name: tpl.name,
+    trigger: tpl.trigger,
+    steps: [...tpl.steps]
+  };
+}
+
+/* ---------------- Utils ---------------- */
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -99,19 +117,28 @@ function toast(msg) {
 
 function fmtDate(ts) {
   const d = new Date(ts);
-  const now = new Date();
-  const sameYear = d.getFullYear() === now.getFullYear();
-  const m = d.getMonth() + 1, day = d.getDate();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${sameYear ? "" : d.getFullYear() + "年"}${m}月${day}日 ${hh}:${mm}`;
+  if (getLang() === "zh") {
+    const now = new Date();
+    const sameYear = d.getFullYear() === now.getFullYear();
+    const m = d.getMonth() + 1, day = d.getDate();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${sameYear ? "" : d.getFullYear() + "年"}${m}月${day}日 ${hh}:${mm}`;
+  }
+  return d.toLocaleString("en-US", {
+    month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit"
+  });
 }
 
 function fmtDelay(min) {
   if (min == null) return "";
-  if (min < 1) return "不到 1 分钟";
-  if (min < 60) return `${Math.round(min)} 分钟`;
-  return `${Math.floor(min / 60)} 小时 ${Math.round(min % 60)} 分钟`;
+  if (min < 1) return t("delay.underOne");
+  if (min < 60) return t("delay.minutes", { n: Math.round(min) });
+  return t("delay.hoursMinutes", {
+    h: Math.floor(min / 60),
+    m: Math.round(min % 60)
+  });
 }
 
 function dayKey(ts) {
@@ -121,24 +148,33 @@ function dayKey(ts) {
 
 function greeting() {
   const h = new Date().getHours();
-  if (h < 5) return "夜深了";
-  if (h < 11) return "早上好";
-  if (h < 14) return "中午好";
-  if (h < 18) return "下午好";
-  return "晚上好";
+  if (h < 5) return t("greet.lateNight");
+  if (h < 11) return t("greet.morning");
+  if (h < 14) return t("greet.noon");
+  if (h < 18) return t("greet.afternoon");
+  return t("greet.evening");
 }
 
-/* ---------------- 路由 ---------------- */
+function onLangChange() {
+  updateTabbar();
+  if (help.overlay) closeHelp();
+  if (!DB.onboarded) renderOnboarding(0);
+  else nav(currentView === "planEdit" ? "plans" : currentView);
+}
+
+/* ---------------- Router ---------------- */
 
 let currentView = "home";
+let planEditId = null;
 
 function nav(view, param) {
   currentView = view;
+  if (view === "planEdit") planEditId = param ?? null;
   window.scrollTo(0, 0);
   const views = {
     home: renderHome,
     plans: renderPlans,
-    planEdit: () => renderPlanEdit(param),
+    planEdit: () => renderPlanEdit(planEditId),
     progress: renderProgress
   };
   (views[view] || renderHome)();
@@ -147,9 +183,16 @@ function nav(view, param) {
 
 function updateTabbar() {
   tabbar.hidden = !DB.onboarded;
-  $$(".tab", tabbar).forEach(t => {
-    const v = t.dataset.nav;
-    t.classList.toggle("active",
+  const labels = {
+    home: t("tab.home"),
+    plans: t("tab.plans"),
+    progress: t("tab.progress")
+  };
+  $$(".tab", tabbar).forEach(btn => {
+    const v = btn.dataset.nav;
+    const label = btn.querySelector(".tab-label");
+    if (label) label.textContent = labels[v] || "";
+    btn.classList.toggle("active",
       v === currentView || (v === "plans" && currentView === "planEdit"));
   });
 }
@@ -159,39 +202,40 @@ tabbar.addEventListener("click", e => {
   if (btn) nav(btn.dataset.nav);
 });
 
-/* ---------------- 引导(第一次打开) ---------------- */
+/* ---------------- Onboarding ---------------- */
 
 function renderOnboarding(step = 0) {
   tabbar.hidden = true;
   const dots = [0, 1, 2].map(i =>
     `<span class="dot2 ${i === step ? "on" : ""}"></span>`).join("");
+  const templates = getTemplates();
 
   const pages = [
     `
     <div class="onboard-emoji">🌱</div>
-    <h1>当冲动来临时,<br>帮你重新获得一次选择。</h1>
-    <p>这里不计算你"坚持了多少天",<br>也不会评判你。<br>它只做一件事:在最难的那几分钟,陪你走过去。</p>
+    <h1>${t("onboard.1.title")}</h1>
+    <p>${t("onboard.1.body")}</p>
     `,
     `
     <div class="onboard-emoji">🧭</div>
-    <h1>它是这样工作的</h1>
+    <h1>${t("onboard.2.title")}</h1>
     <div class="onboard-flow">
-      <div class="of-step"><span class="of-badge">1</span><span class="of-text"><b>平静时,准备好计划</b><span>写下你的触发情境,和你想做的替代行动。</span></span></div>
+      <div class="of-step"><span class="of-badge">1</span><span class="of-text"><b>${t("onboard.2.s1.title")}</b><span>${t("onboard.2.s1.body")}</span></span></div>
       <div class="of-line"></div>
-      <div class="of-step"><span class="of-badge">2</span><span class="of-text"><b>冲动来时,打开它</b><span>它会带你呼吸,然后一步步执行你自己的计划。</span></span></div>
+      <div class="of-step"><span class="of-badge">2</span><span class="of-text"><b>${t("onboard.2.s2.title")}</b><span>${t("onboard.2.s2.body")}</span></span></div>
       <div class="of-line"></div>
-      <div class="of-step"><span class="of-badge">3</span><span class="of-text"><b>结束后,看到变化</b><span>不管结果如何,每一次记录都让你更了解自己。</span></span></div>
+      <div class="of-step"><span class="of-badge">3</span><span class="of-text"><b>${t("onboard.2.s3.title")}</b><span>${t("onboard.2.s3.body")}</span></span></div>
     </div>
     `,
     `
     <div class="onboard-emoji">🤝</div>
-    <h1>先准备一个计划吧</h1>
-    <p>选一个和你最像的情境作为起点,<br>之后随时可以修改,或者添加更多。</p>
+    <h1>${t("onboard.3.title")}</h1>
+    <p>${t("onboard.3.body")}</p>
     <div class="stack" style="margin-top:24px; text-align:left;">
-      ${TEMPLATES.map((t, i) => `
+      ${templates.map((tpl, i) => `
         <button class="tpl-card" data-tpl="${i}">
-          <div class="tc-name">${t.emoji} ${esc(t.name)}</div>
-          <div class="tc-desc">触发:${esc(t.trigger)}</div>
+          <div class="tc-name">${tpl.emoji} ${esc(tpl.name)}</div>
+          <div class="tc-desc">${t("common.triggerPrefix")}${esc(tpl.trigger)}</div>
         </button>`).join("")}
     </div>
     `
@@ -202,17 +246,19 @@ function renderOnboarding(step = 0) {
       ${pages[step]}
       <div class="onboard-dots">${dots}</div>
       ${step < 2
-        ? `<button class="btn btn-primary btn-block" id="ob-next">继续</button>`
-        : `<button class="btn btn-ghost btn-block" id="ob-skip">先跳过,直接开始</button>`}
+        ? `<button class="btn btn-primary btn-block" id="ob-next">${t("common.continue")}</button>`
+        : `<button class="btn btn-ghost btn-block" id="ob-skip">${t("onboard.skip")}</button>`}
+      ${langSwitcherHtml("lang-switch--onboard")}
     </div>`;
 
+  bindLangSwitcher(onLangChange);
   $("#ob-next")?.addEventListener("click", () => renderOnboarding(step + 1));
   $("#ob-skip")?.addEventListener("click", finishOnboarding);
   $$("[data-tpl]").forEach(btn => btn.addEventListener("click", () => {
-    const t = TEMPLATES[+btn.dataset.tpl];
-    DB.plans.push({ id: uid(), emoji: t.emoji, name: t.name, trigger: t.trigger, steps: [...t.steps], createdAt: Date.now() });
+    const tpl = templates[+btn.dataset.tpl];
+    DB.plans.push(planFromTemplate(tpl));
     finishOnboarding();
-    toast("你的第一个计划已经准备好了");
+    toast(t("onboard.firstPlanReady"));
   }));
 
   function finishOnboarding() {
@@ -222,7 +268,7 @@ function renderOnboarding(step = 0) {
   }
 }
 
-/* ---------------- 首页:此刻 ---------------- */
+/* ---------------- Home ---------------- */
 
 function renderHome() {
   const todayRecs = DB.records.filter(r => dayKey(r.ts) === dayKey(Date.now()));
@@ -231,8 +277,8 @@ function renderHome() {
   let todayLine = "";
   if (todayRecs.length > 0) {
     todayLine = todayChanged > 0
-      ? `今天你已经做出 ${todayChanged} 次不同的选择 🌿`
-      : `今天你已经练习了 ${todayRecs.length} 次,来了就是进步`;
+      ? t("home.todayChanged", { n: todayChanged })
+      : t("home.todayPracticed", { n: todayRecs.length });
   }
 
   app.innerHTML = `
@@ -240,21 +286,23 @@ function renderHome() {
       <div class="home-hero">
         <span class="home-plant">🌱</span>
         <div class="home-greet">${greeting()}</div>
-        <div class="home-question">你现在需要帮助吗?</div>
-        <button class="help-btn" id="btn-help">我需要<br>帮助</button>
+        <div class="home-question">${t("home.question")}</div>
+        <button class="help-btn" id="btn-help">${t("home.helpBtn")}</button>
         ${todayLine ? `<div style="margin-top:28px"><span class="today-line">${todayLine}</span></div>` : ""}
       </div>
       <div class="home-secondary stack">
-        <button class="btn btn-ghost btn-block" id="btn-retro">🕯️ 平静地补记刚才的一次经历</button>
+        <button class="btn btn-ghost btn-block" id="btn-retro">${t("home.retro")}</button>
       </div>
-      <p class="home-note">你的一切记录只保存在这台设备上,<br>不会上传,没有人看得到。</p>
+      <p class="home-note">${t("home.privacy")}</p>
+      ${langSwitcherHtml("lang-switch--home")}
     </div>`;
 
+  bindLangSwitcher(onLangChange);
   $("#btn-help").addEventListener("click", () => startHelp(false));
   $("#btn-retro").addEventListener("click", () => startHelp(true));
 }
 
-/* ---------------- 帮助流程 ---------------- */
+/* ---------------- Help flow ---------------- */
 
 const help = {
   overlay: null,
@@ -275,7 +323,7 @@ function startHelp(retro) {
   el.className = "help-overlay";
   el.innerHTML = `<div class="help-inner">
     <div class="help-top">
-      <button class="help-exit" id="help-exit">收起</button>
+      <button class="help-exit" id="help-exit">${t("help.exit")}</button>
       <span class="help-timer" id="help-timer"></span>
     </div>
     <div class="help-body" id="help-body"></div>
@@ -289,8 +337,11 @@ function startHelp(retro) {
   if (!retro) {
     help.timerInt = setInterval(() => {
       const s = Math.floor((Date.now() - help.startTs) / 1000);
-      const t = $("#help-timer", el);
-      if (t) t.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+      const timerEl = $("#help-timer", el);
+      if (timerEl) {
+        timerEl.textContent =
+          `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+      }
     }, 1000);
   }
 
@@ -311,40 +362,37 @@ function helpBody(html) {
   return body;
 }
 
-/* 第一步:你来了 */
 function helpArrive() {
   const body = helpBody(`
-    <div class="help-title">你来了。</div>
-    <div class="help-sub">打开这个页面,本身就是一次选择。<br>冲动像海浪,它会升起,也一定会退去。</div>
+    <div class="help-title">${t("help.arrive.title")}</div>
+    <div class="help-sub">${t("help.arrive.sub")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-breathe">先陪我呼吸一分钟</button>
-      <button class="btn btn-calm-ghost btn-block" id="h-skip">直接开始行动</button>
+      <button class="btn btn-calm btn-block" id="h-breathe">${t("help.arrive.breathe")}</button>
+      <button class="btn btn-calm-ghost btn-block" id="h-skip">${t("help.arrive.skip")}</button>
     </div>`);
   $("#h-breathe", body).addEventListener("click", helpBreathe);
   $("#h-skip", body).addEventListener("click", helpPickPlan);
 }
 
-/* 第二步:呼吸 */
 function helpBreathe() {
   const body = helpBody(`
     <div class="breath-wrap">
       <div class="breath-circle"></div>
-      <div class="breath-text" id="breath-text">吸气……</div>
+      <div class="breath-text" id="breath-text">${t("help.breath.inhale")}</div>
     </div>
-    <div class="help-sub" id="breath-count">跟着圆圈的节奏,不用着急</div>
+    <div class="help-sub" id="breath-count">${t("help.breath.hint")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-next">我好一些了,继续</button>
+      <button class="btn btn-calm btn-block" id="h-next">${t("help.breath.next")}</button>
     </div>`);
 
-  /* 与 CSS 的 8 秒呼吸动画同步:前 4 秒吸气,后 4 秒呼气 */
   let phase = 0;
   const textEl = $("#breath-text", body);
   const breathInt = setInterval(() => {
     if (!document.body.contains(textEl)) { clearInterval(breathInt); return; }
     phase = (phase + 1) % 2;
-    textEl.textContent = phase === 0 ? "吸气……" : "呼气……";
+    textEl.textContent = phase === 0 ? t("help.breath.inhale") : t("help.breath.exhale");
   }, 4000);
 
   let rounds = 0;
@@ -352,7 +400,7 @@ function helpBreathe() {
   const roundInt = setInterval(() => {
     if (!document.body.contains(countEl)) { clearInterval(roundInt); return; }
     rounds++;
-    countEl.textContent = `已经完成 ${rounds} 轮呼吸`;
+    countEl.textContent = t("help.breath.rounds", { n: rounds });
   }, 8000);
 
   $("#h-next", body).addEventListener("click", () => {
@@ -362,38 +410,42 @@ function helpBreathe() {
   });
 }
 
-/* 第三步:选择计划 */
 function helpPickPlan() {
   const plans = DB.plans.length ? DB.plans : [];
+  const fallback = getFallbackPlan();
   const body = helpBody(`
-    <div class="help-title">现在的情况,像哪一个?</div>
-    <div class="help-sub">选择你为此准备的计划</div>
+    <div class="help-title">${t("help.pick.title")}</div>
+    <div class="help-sub">${t("help.pick.sub")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
-      ${plans.map(p => `
+      ${plans.map(raw => {
+        const p = localizePlan(raw);
+        return `
         <button class="plan-pick" data-plan="${p.id}">
           <div class="pp-name">${p.emoji} ${esc(p.name)}</div>
-          <div class="pp-trigger">触发:${esc(p.trigger)}</div>
-        </button>`).join("")}
+          <div class="pp-trigger">${t("common.triggerPrefix")}${esc(p.trigger)}</div>
+        </button>`;
+      }).join("")}
       <button class="plan-pick" data-plan="__fallback__">
-        <div class="pp-name">${FALLBACK_PLAN.emoji} 都不太像 / 我还没有计划</div>
-        <div class="pp-trigger">用通用的应急方法</div>
+        <div class="pp-name">${fallback.emoji} ${t("fallback.option")}</div>
+        <div class="pp-trigger">${t("fallback.optionSub")}</div>
       </button>
     </div>`);
 
   $$("[data-plan]", body).forEach(btn => btn.addEventListener("click", () => {
     const id = btn.dataset.plan;
-    help.plan = id === "__fallback__" ? FALLBACK_PLAN : DB.plans.find(p => p.id === id);
+    help.plan = id === "__fallback__"
+      ? getFallbackPlan()
+      : localizePlan(DB.plans.find(p => p.id === id));
     helpSteps();
   }));
 }
 
-/* 第四步:执行 */
 function helpSteps() {
   const p = help.plan;
   const body = helpBody(`
     <div class="help-title">${p.emoji} ${esc(p.name)}</div>
-    <div class="help-sub">一次只做一步。做完一步,就点亮它。</div>
+    <div class="help-sub">${t("help.steps.sub")}</div>
     <div class="step-list">
       ${p.steps.map((s, i) => `
         <button class="step-item" data-step="${i}">
@@ -403,7 +455,7 @@ function helpSteps() {
     </div>
     <div class="spacer"></div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-done">这一轮结束了,记录一下</button>
+      <button class="btn btn-calm btn-block" id="h-done">${t("help.steps.done")}</button>
     </div>`);
 
   $$(".step-item", body).forEach(btn => btn.addEventListener("click", () => {
@@ -415,7 +467,7 @@ function helpSteps() {
       help.doneSteps.add(i);
       btn.classList.add("done");
       if (help.doneSteps.size === p.steps.length) {
-        toast("全部完成了,你做得很好");
+        toast(t("help.steps.allDone"));
       }
     }
   }));
@@ -423,20 +475,19 @@ function helpSteps() {
   $("#h-done", body).addEventListener("click", helpOutcome);
 }
 
-/* 第五步:结果 */
 function helpOutcome() {
   const body = helpBody(`
-    <div class="help-title">${help.retro ? "刚才发生了什么?" : "这一次,后来怎么样?"}</div>
-    <div class="help-sub">诚实地记录就好。这里没有对错,只有了解自己。</div>
+    <div class="help-title">${help.retro ? t("help.outcome.titleRetro") : t("help.outcome.title")}</div>
+    <div class="help-sub">${t("help.outcome.sub")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
       <button class="outcome-btn" data-outcome="changed">
-        <div class="ob-title">🌿 我做出了不同的选择</div>
-        <div class="ob-sub">冲动出现了,但这次我改变了行为</div>
+        <div class="ob-title">${t("help.outcome.changed")}</div>
+        <div class="ob-sub">${t("help.outcome.changedSub")}</div>
       </button>
       <button class="outcome-btn" data-outcome="followed">
-        <div class="ob-title">🌧️ 这次顺着冲动走了</div>
-        <div class="ob-sub">没关系。愿意记录下来,已经是在练习</div>
+        <div class="ob-title">${t("help.outcome.followed")}</div>
+        <div class="ob-sub">${t("help.outcome.followedSub")}</div>
       </button>
     </div>`);
 
@@ -445,25 +496,24 @@ function helpOutcome() {
   }));
 }
 
-/* 第六步:细节(哪个行动有用 + 备注) */
 function helpDetail(outcome) {
   const p = help.plan;
   const showSteps = outcome === "changed" && p && p.steps.length;
 
   const body = helpBody(`
-    <div class="help-title">${outcome === "changed" ? "太好了。" : "谢谢你的诚实。"}</div>
+    <div class="help-title">${outcome === "changed" ? t("help.detail.good") : t("help.detail.thanks")}</div>
     ${showSteps ? `
-      <div class="help-sub" style="margin-top:20px">哪一步对你最有帮助?(可选)</div>
+      <div class="help-sub" style="margin-top:20px">${t("help.detail.whichStep")}</div>
       <div class="row" style="justify-content:center; margin-top:12px">
         ${p.steps.map((s, i) => `<button class="chip chip-dark" data-chip="${i}">${esc(s)}</button>`).join("")}
       </div>` : ""}
     <div class="spacer"></div>
     <div class="field">
       <textarea class="input input-dark" id="h-note" rows="3"
-        placeholder="想说点什么吗?比如当时的情绪、场景……(可选)"></textarea>
+        placeholder="${esc(t("help.detail.notePh"))}"></textarea>
     </div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-save">保存这次记录</button>
+      <button class="btn btn-calm btn-block" id="h-save">${t("help.detail.save")}</button>
     </div>`);
 
   let helped = null;
@@ -496,7 +546,6 @@ function helpDetail(outcome) {
   });
 }
 
-/* 第七步:结束 */
 function helpClose(outcome, delayMin) {
   clearInterval(help.timerInt);
   const total = DB.records.length;
@@ -505,141 +554,147 @@ function helpClose(outcome, delayMin) {
   const statHtml = (!help.retro && delayMin != null && outcome === "changed")
     ? `<div class="close-stat">
          <div class="cs-num">${fmtDelay(delayMin)}</div>
-         <div class="cs-label">从冲动到选择,你为自己争取的时间</div>
+         <div class="cs-label">${t("help.close.delayLabel")}</div>
        </div>`
     : "";
 
   const msg = outcome === "changed"
-    ? "你刚刚证明了:冲动不等于必须行动。"
-    : "没有失败的练习。这次的记录,会让下一次更容易。";
+    ? t("help.close.changed")
+    : t("help.close.followed");
 
   helpBody(`
     <div class="close-figure">${outcome === "changed" ? "🌿" : "🕯️"}</div>
     <div class="help-title" style="margin-top:16px">${msg}</div>
     ${statHtml}
     <div class="close-stat">
-      <div class="cs-num">${total} <small style="font-size:16px">次</small></div>
-      <div class="cs-label">你已经练习重新选择 ${total} 次,其中 ${changed} 次改变了行为</div>
+      <div class="cs-num">${total} <small style="font-size:16px">${t("common.times")}</small></div>
+      <div class="cs-label">${t("help.close.practice", { total, changed })}</div>
     </div>
     <div class="spacer"></div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-close">好,回到生活里去</button>
+      <button class="btn btn-calm btn-block" id="h-close">${t("help.close.back")}</button>
     </div>`);
 
   $("#h-close", help.overlay).addEventListener("click", closeHelp);
 }
 
-/* ---------------- 计划页 ---------------- */
+/* ---------------- Plans ---------------- */
 
 function renderPlans() {
+  const templates = getTemplates();
   const plansHtml = DB.plans.length
-    ? DB.plans.map(p => `
+    ? DB.plans.map(raw => {
+      const p = localizePlan(raw);
+      return `
       <div class="card plan-card">
         <div class="plan-head">
           <span class="plan-emoji">${p.emoji}</span>
           <span class="plan-name">${esc(p.name)}</span>
-          <button class="plan-edit-btn" data-edit="${p.id}">编辑</button>
+          <button class="plan-edit-btn" data-edit="${p.id}">${t("plans.edit")}</button>
         </div>
         <div class="plan-section">
-          <div class="ps-label">触发</div>
+          <div class="ps-label">${t("plans.trigger")}</div>
           <div class="plan-trigger">${esc(p.trigger)}</div>
         </div>
         <div class="plan-section">
-          <div class="ps-label">行动</div>
+          <div class="ps-label">${t("plans.actions")}</div>
           <ol class="plan-steps">${p.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
         </div>
-      </div>`).join("")
+      </div>`;
+    }).join("")
     : `<div class="card center" style="padding:32px 20px">
         <div style="font-size:40px">🧭</div>
-        <p class="muted" style="margin-top:10px">还没有计划。<br>平静的现在,正是为困难时刻做准备的最好时机。</p>
+        <p class="muted" style="margin-top:10px">${t("plans.empty")}</p>
       </div>`;
 
-  const usedNames = new Set(DB.plans.map(p => p.name));
-  const remainingTpls = TEMPLATES.filter(t => !usedNames.has(t.name));
+  const usedIds = new Set(DB.plans.map(p => p.templateId).filter(Boolean));
+  const remainingTpls = templates.filter(tpl => !usedIds.has(tpl.id));
 
   app.innerHTML = `
     <div class="screen">
-      <div class="page-title">我的计划</div>
-      <div class="page-sub">在平静时准备,在困难时使用</div>
+      <div class="page-title">${t("plans.title")}</div>
+      <div class="page-sub">${t("plans.sub")}</div>
       <div class="spacer"></div>
       <div class="stack">${plansHtml}</div>
       <div class="spacer"></div>
-      <button class="btn btn-primary btn-block" id="btn-new-plan">＋ 新建一个计划</button>
+      <button class="btn btn-primary btn-block" id="btn-new-plan">${t("plans.new")}</button>
       ${remainingTpls.length ? `
-        <div class="section-title">从模板开始</div>
+        <div class="section-title">${t("plans.fromTemplate")}</div>
         <div class="stack">
-          ${remainingTpls.map((t, i) => `
-            <button class="tpl-card" data-tpl-name="${esc(t.name)}">
-              <div class="tc-name">${t.emoji} ${esc(t.name)}</div>
-              <div class="tc-desc">${esc(t.desc)} · 触发:${esc(t.trigger)}</div>
+          ${remainingTpls.map(tpl => `
+            <button class="tpl-card" data-tpl-id="${esc(tpl.id)}">
+              <div class="tc-name">${tpl.emoji} ${esc(tpl.name)}</div>
+              <div class="tc-desc">${esc(tpl.desc)} · ${t("common.triggerPrefix")}${esc(tpl.trigger)}</div>
             </button>`).join("")}
         </div>` : ""}
     </div>`;
 
   $("#btn-new-plan").addEventListener("click", () => nav("planEdit", null));
   $$("[data-edit]").forEach(b => b.addEventListener("click", () => nav("planEdit", b.dataset.edit)));
-  $$("[data-tpl-name]").forEach(b => b.addEventListener("click", () => {
-    const t = TEMPLATES.find(t => t.name === b.dataset.tplName);
-    DB.plans.push({ id: uid(), emoji: t.emoji, name: t.name, trigger: t.trigger, steps: [...t.steps], createdAt: Date.now() });
+  $$("[data-tpl-id]").forEach(b => b.addEventListener("click", () => {
+    const tpl = templates.find(x => x.id === b.dataset.tplId);
+    if (!tpl) return;
+    DB.plans.push(planFromTemplate(tpl));
     saveData();
     renderPlans();
-    toast("已添加,你可以随时编辑它");
+    toast(t("plans.added"));
   }));
 }
 
-/* ---------------- 计划编辑 ---------------- */
+/* ---------------- Plan edit ---------------- */
 
 const EMOJIS = ["🌙", "📱", "😔", "🌅", "🏠", "💻", "🛏️", "🚿", "🧠", "⚡"];
 
 function renderPlanEdit(planId) {
   const plan = planId ? DB.plans.find(p => p.id === planId) : null;
-  const draft = plan
-    ? { emoji: plan.emoji, name: plan.name, trigger: plan.trigger, steps: [...plan.steps] }
+  const view = plan ? localizePlan(plan) : null;
+  const draft = view
+    ? { emoji: view.emoji, name: view.name, trigger: view.trigger, steps: [...view.steps] }
     : { emoji: "🌙", name: "", trigger: "", steps: ["", ""] };
 
   function render() {
     app.innerHTML = `
       <div class="screen">
-        <div class="page-title">${plan ? "编辑计划" : "新建计划"}</div>
-        <div class="page-sub">当"触发"出现时,你打算用哪些"行动"来代替?</div>
+        <div class="page-title">${plan ? t("planEdit.edit") : t("planEdit.new")}</div>
+        <div class="page-sub">${t("planEdit.sub")}</div>
         <div class="spacer"></div>
 
         <div class="field">
-          <label>图标</label>
+          <label>${t("planEdit.icon")}</label>
           <div class="row">
             ${EMOJIS.map(e => `<button class="chip ${draft.emoji === e ? "selected" : ""}" data-emoji="${e}" style="font-size:18px">${e}</button>`).join("")}
           </div>
         </div>
 
         <div class="field">
-          <label>名字</label>
-          <input class="input" id="pe-name" placeholder="例如:夜晚独处" value="${esc(draft.name)}" maxlength="20">
+          <label>${t("planEdit.name")}</label>
+          <input class="input" id="pe-name" placeholder="${esc(t("planEdit.namePh"))}" value="${esc(draft.name)}" maxlength="20">
         </div>
 
         <div class="field">
-          <label>触发情境</label>
-          <input class="input" id="pe-trigger" placeholder="例如:独处 + 手机" value="${esc(draft.trigger)}" maxlength="40">
-          <div class="hint">什么情况下,冲动最容易出现?</div>
+          <label>${t("planEdit.trigger")}</label>
+          <input class="input" id="pe-trigger" placeholder="${esc(t("planEdit.triggerPh"))}" value="${esc(draft.trigger)}" maxlength="40">
+          <div class="hint">${t("planEdit.triggerHint")}</div>
         </div>
 
         <div class="field">
-          <label>替代行动(按顺序执行)</label>
+          <label>${t("planEdit.steps")}</label>
           <div id="pe-steps">
             ${draft.steps.map((s, i) => `
               <div class="step-edit-row">
-                <input class="input" data-step-input="${i}" placeholder="第 ${i + 1} 步,例如:离开房间" value="${esc(s)}" maxlength="30">
-                ${draft.steps.length > 1 ? `<button class="step-remove" data-step-del="${i}" aria-label="删除这一步">✕</button>` : ""}
+                <input class="input" data-step-input="${i}" placeholder="${esc(t("planEdit.stepPh", { n: i + 1 }))}" value="${esc(s)}" maxlength="30">
+                ${draft.steps.length > 1 ? `<button class="step-remove" data-step-del="${i}" aria-label="${esc(t("planEdit.removeStep"))}">✕</button>` : ""}
               </div>`).join("")}
           </div>
-          <button class="btn btn-soft btn-sm" id="pe-add-step">＋ 加一步</button>
-          <div class="hint">行动越具体、越容易开始越好。"洗澡"比"转移注意力"有用得多。</div>
+          <button class="btn btn-soft btn-sm" id="pe-add-step">${t("planEdit.addStep")}</button>
+          <div class="hint">${t("planEdit.stepsHint")}</div>
         </div>
 
         <div class="spacer"></div>
         <div class="stack">
-          <button class="btn btn-primary btn-block" id="pe-save">保存计划</button>
-          <button class="btn btn-ghost btn-block" id="pe-cancel">取消</button>
-          ${plan ? `<button class="btn btn-danger-ghost btn-block" id="pe-del">删除这个计划</button>` : ""}
+          <button class="btn btn-primary btn-block" id="pe-save">${t("planEdit.save")}</button>
+          <button class="btn btn-ghost btn-block" id="pe-cancel">${t("common.cancel")}</button>
+          ${plan ? `<button class="btn btn-danger-ghost btn-block" id="pe-del">${t("planEdit.delete")}</button>` : ""}
         </div>
       </div>`;
 
@@ -669,26 +724,40 @@ function renderPlanEdit(planId) {
       const name = draft.name.trim();
       const trigger = draft.trigger.trim();
       const steps = draft.steps.map(s => s.trim()).filter(Boolean);
-      if (!name) { toast("给计划起个名字吧"); return; }
-      if (!steps.length) { toast("至少写一个替代行动"); return; }
+      if (!name) { toast(t("planEdit.needName")); return; }
+      if (!steps.length) { toast(t("planEdit.needStep")); return; }
       if (plan) {
-        Object.assign(plan, { emoji: draft.emoji, name, trigger: trigger || "未填写", steps });
+        Object.assign(plan, {
+          emoji: draft.emoji,
+          name,
+          trigger: trigger || t("planEdit.unnamedTrigger"),
+          steps
+        });
+        /* Edited plans keep the user's wording; stop rebinding to template locale */
+        delete plan.templateId;
       } else {
-        DB.plans.push({ id: uid(), emoji: draft.emoji, name, trigger: trigger || "未填写", steps, createdAt: Date.now() });
+        DB.plans.push({
+          id: uid(),
+          emoji: draft.emoji,
+          name,
+          trigger: trigger || t("planEdit.unnamedTrigger"),
+          steps,
+          createdAt: Date.now()
+        });
       }
       saveData();
       nav("plans");
-      toast("计划已保存");
+      toast(t("planEdit.saved"));
     });
 
     $("#pe-cancel").addEventListener("click", () => nav("plans"));
 
     $("#pe-del")?.addEventListener("click", () => {
-      if (confirm("确定删除这个计划吗?已有的记录不会丢失。")) {
+      if (confirm(t("planEdit.deleteConfirm"))) {
         DB.plans = DB.plans.filter(p => p.id !== plan.id);
         saveData();
         nav("plans");
-        toast("已删除");
+        toast(t("planEdit.deleted"));
       }
     });
   }
@@ -707,7 +776,7 @@ function renderPlanEdit(planId) {
   render();
 }
 
-/* ---------------- 成长页 ---------------- */
+/* ---------------- Progress ---------------- */
 
 function renderProgress() {
   const now = Date.now();
@@ -716,16 +785,13 @@ function renderProgress() {
   const urges = recent.length;
   const changed = recent.filter(r => r.outcome === "changed");
 
-  /* 平均反应距离(仅统计实时求助且改变了行为的记录) */
   const delays = changed.filter(r => r.delayMin != null).map(r => r.delayMin);
   const avgDelay = delays.length ? delays.reduce((a, b) => a + b, 0) / delays.length : null;
 
-  /* 最有效行动 */
   const stepCount = {};
   changed.forEach(r => { if (r.helpedStep) stepCount[r.helpedStep] = (stepCount[r.helpedStep] || 0) + 1; });
   const bestStep = Object.entries(stepCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-  /* 最近14天柱状图 */
   const chartDays = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(now - i * 86400000);
@@ -747,7 +813,6 @@ function renderProgress() {
       <div class="mini-day">${d.label}</div>
     </div>`).join("");
 
-  /* 历史列表(最近20条) */
   const history = [...DB.records].sort((a, b) => b.ts - a.ts).slice(0, 20);
   const historyHtml = history.length
     ? history.map(r => `
@@ -755,76 +820,82 @@ function renderProgress() {
         <span class="rec-mark">${r.outcome === "changed" ? "🌿" : "🌧️"}</span>
         <div class="rec-main">
           <div class="rec-title">
-            <span class="tag ${r.outcome === "changed" ? "tag-changed" : "tag-followed"}">${r.outcome === "changed" ? "改变了行为" : "顺着冲动走了"}</span>
+            <span class="tag ${r.outcome === "changed" ? "tag-changed" : "tag-followed"}">${r.outcome === "changed" ? t("progress.tag.changed") : t("progress.tag.followed")}</span>
           </div>
           <div class="rec-meta">
-            ${fmtDate(r.ts)}${r.planName ? " · " + esc(r.planName) : ""}${r.delayMin != null && r.outcome === "changed" ? " · 延迟 " + fmtDelay(r.delayMin) : ""}
+            ${fmtDate(r.ts)}${r.planName ? " · " + esc(r.planName) : ""}${r.delayMin != null && r.outcome === "changed" ? t("progress.delayPrefix") + fmtDelay(r.delayMin) : ""}
           </div>
-          ${r.helpedStep ? `<div class="rec-note">有效行动:${esc(r.helpedStep)}</div>` : ""}
+          ${r.helpedStep ? `<div class="rec-note">${t("progress.helped")}${esc(r.helpedStep)}</div>` : ""}
           ${r.note ? `<div class="rec-note">"${esc(r.note)}"</div>` : ""}
         </div>
-        <button class="rec-del" data-rec-del="${r.id}" aria-label="删除记录">✕</button>
+        <button class="rec-del" data-rec-del="${r.id}" aria-label="${esc(t("progress.deleteRec"))}">✕</button>
       </div>`).join("")
-    : `<p class="muted center" style="padding:16px 0">还没有记录。<br>下次冲动出现时,记得回来。</p>`;
+    : `<p class="muted center" style="padding:16px 0">${t("progress.empty")}</p>`;
 
   const insightHtml = [];
-  if (bestStep) insightHtml.push(`对你最有效的行动是 <b>${esc(bestStep)}</b>。下次可以直接从它开始。`);
-  if (avgDelay != null) insightHtml.push(`从打开帮助到做出选择,你平均为自己争取了 <b>${fmtDelay(avgDelay)}</b>。这段距离,就是你和冲动之间的自由。`);
-  if (!insightHtml.length && urges > 0) insightHtml.push(`你已经开始记录了。数据积累一段时间后,这里会告诉你哪些方法对你最有效。`);
+  if (bestStep) insightHtml.push(t("progress.insight.best", { step: esc(bestStep) }));
+  if (avgDelay != null) insightHtml.push(t("progress.insight.delay", { delay: fmtDelay(avgDelay) }));
+  if (!insightHtml.length && urges > 0) insightHtml.push(t("progress.insight.start"));
 
   app.innerHTML = `
     <div class="screen">
-      <div class="page-title">你的成长</div>
-      <div class="page-sub">不看"坚持了多少天",只看你有没有越来越强</div>
+      <div class="page-title">${t("progress.title")}</div>
+      <div class="page-sub">${t("progress.sub")}</div>
       <div class="spacer"></div>
 
       <div class="stat-grid">
         <div class="stat-card">
           <div class="st-num">${urges}</div>
-          <div class="st-label">过去 30 天,冲动出现</div>
+          <div class="st-label">${t("progress.urges")}</div>
         </div>
         <div class="stat-card">
           <div class="st-num">${changed.length}</div>
-          <div class="st-label">其中,你改变了行为</div>
+          <div class="st-label">${t("progress.changed")}</div>
         </div>
         <div class="stat-card">
           <div class="st-num">${urges ? Math.round(changed.length / urges * 100) + "<small>%</small>" : "—"}</div>
-          <div class="st-label">重新选择的比例</div>
+          <div class="st-label">${t("progress.rate")}</div>
         </div>
         <div class="stat-card">
           <div class="st-num" style="font-size:${avgDelay != null ? 20 : 30}px; padding-top:${avgDelay != null ? 6 : 0}px">${avgDelay != null ? fmtDelay(avgDelay) : "—"}</div>
-          <div class="st-label">平均反应距离</div>
+          <div class="st-label">${t("progress.avgDelay")}</div>
         </div>
       </div>
 
       ${insightHtml.length ? `<div class="spacer"></div><div class="insight">💡 ${insightHtml.join("<br><br>")}</div>` : ""}
 
-      <div class="section-title">最近 14 天</div>
+      <div class="section-title">${t("progress.chart14")}</div>
       <div class="card">
         <div class="mini-chart">${chartHtml}</div>
         <div class="legend">
-          <span><span class="dot" style="background:var(--green)"></span>改变了行为</span>
-          <span><span class="dot" style="background:#d8cfbd"></span>顺着冲动走了</span>
+          <span><span class="dot" style="background:var(--green)"></span>${t("progress.legend.changed")}</span>
+          <span><span class="dot" style="background:#d8cfbd"></span>${t("progress.legend.followed")}</span>
         </div>
       </div>
 
-      <div class="section-title">最近的记录</div>
+      <div class="section-title">${t("progress.recent")}</div>
       <div class="card">${historyHtml}</div>
 
-      <div class="section-title">你的数据</div>
+      <div class="section-title">${t("progress.data")}</div>
       <div class="card stack">
-        <p class="faint">所有数据只存在这台设备的浏览器里。建议偶尔导出备份,换设备时可以导入恢复。</p>
+        <p class="faint">${t("progress.dataHint")}</p>
         <div class="row">
-          <button class="btn btn-soft btn-sm" id="btn-export">导出备份</button>
-          <button class="btn btn-ghost btn-sm" id="btn-import">导入备份</button>
-          <button class="btn btn-danger-ghost btn-sm" id="btn-clear">清空全部数据</button>
+          <button class="btn btn-soft btn-sm" id="btn-export">${t("progress.export")}</button>
+          <button class="btn btn-ghost btn-sm" id="btn-import">${t("progress.import")}</button>
+          <button class="btn btn-danger-ghost btn-sm" id="btn-clear">${t("progress.clear")}</button>
         </div>
         <input type="file" id="import-file" accept=".json,application/json" hidden>
+        <div class="field" style="margin:8px 0 0">
+          <label>${t("lang.label")}</label>
+          ${langSwitcherHtml()}
+        </div>
       </div>
     </div>`;
 
+  bindLangSwitcher(onLangChange);
+
   $$("[data-rec-del]").forEach(b => b.addEventListener("click", () => {
-    if (confirm("删除这条记录?")) {
+    if (confirm(t("progress.deleteRecConfirm"))) {
       DB.records = DB.records.filter(r => r.id !== b.dataset.recDel);
       saveData();
       renderProgress();
@@ -835,30 +906,31 @@ function renderProgress() {
   $("#btn-import").addEventListener("click", () => $("#import-file").click());
   $("#import-file").addEventListener("change", importData);
   $("#btn-clear").addEventListener("click", () => {
-    if (confirm("确定清空全部计划和记录吗?此操作无法撤销。")) {
-      if (confirm("再确认一次:真的要清空吗?")) {
+    if (confirm(t("progress.clear1"))) {
+      if (confirm(t("progress.clear2"))) {
         DB = structuredClone(DEFAULT_DATA);
         DB.onboarded = true;
         saveData();
         renderProgress();
-        toast("已清空");
+        toast(t("progress.cleared"));
       }
     }
   });
 }
 
-/* ---------------- 数据导入导出 ---------------- */
+/* ---------------- Import / export ---------------- */
 
 function exportData() {
   const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const d = new Date();
+  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   a.href = url;
-  a.download = `重新选择-备份-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`;
+  a.download = `${t("progress.exportName")}-${stamp}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast("备份已导出,请妥善保存");
+  toast(t("progress.exported"));
 }
 
 function importData(e) {
@@ -869,22 +941,27 @@ function importData(e) {
     try {
       const d = JSON.parse(reader.result);
       if (!d || !Array.isArray(d.plans) || !Array.isArray(d.records)) {
-        toast("这个文件不是有效的备份");
+        toast(t("progress.importInvalid"));
         return;
       }
-      if (!confirm(`备份包含 ${d.plans.length} 个计划、${d.records.length} 条记录。导入会覆盖当前数据,继续吗?`)) return;
+      if (!confirm(t("progress.importConfirm", {
+        plans: d.plans.length,
+        records: d.records.length
+      }))) return;
       DB = Object.assign(structuredClone(DEFAULT_DATA), d, { onboarded: true });
       saveData();
       nav("progress");
-      toast("导入成功");
+      toast(t("progress.imported"));
     } catch (err) {
-      toast("文件解析失败");
+      toast(t("progress.importFail"));
     }
   };
   reader.readAsText(file);
   e.target.value = "";
 }
 
-/* ---------------- 启动 ---------------- */
+/* ---------------- Boot ---------------- */
 
+initLang();
+updateTabbar();
 DB.onboarded ? nav("home") : renderOnboarding(0);

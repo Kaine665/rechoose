@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f3ea">
+  <meta name="description" content="Rechoose helps you prepare for moments when old patterns take over.">
+  <title>Rechoose — A different next step, when it counts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#waitlist">Skip to waitlist</a>
+
+  <header class="topbar">
+    <span class="wordmark">Rechoose</span>
+    <div class="top-actions">
+      <a class="top-link top-link-quiet" data-app-link href="/app/">Try the app</a>
+      <a class="top-link" href="#waitlist">Join the waitlist</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow-pill">
+          <span class="pill-dot" aria-hidden="true"></span>
+          Early access — opening soon
+        </p>
+        <h1 id="hero-title">
+          You know what to do.<br>
+          <em>But when the moment comes, you forget.</em>
+        </h1>
+        <p class="hero-support">
+          Rechoose helps you prepare a different next step —
+          before the old pattern takes over.
+        </p>
+        <div class="cta-group">
+          <a class="btn btn-primary" href="#waitlist">Join the waitlist</a>
+          <a class="link-quiet" data-app-link href="/app/">Try the web prototype</a>
+        </div>
+      </div>
+
+      <figure class="fork-figure" aria-hidden="true">
+        <svg class="fork" viewBox="0 0 900 300" fill="none" preserveAspectRatio="xMidYMid meet">
+          <!-- the path so far -->
+          <path class="path-base" d="M 30 190 C 150 185, 280 196, 420 188" />
+          <!-- old pattern, fading ahead -->
+          <path class="path-old" d="M 420 188 C 560 183, 690 193, 870 189" />
+          <!-- the new choice -->
+          <path class="path-new" d="M 420 188 C 540 180, 640 130, 720 85 C 770 58, 820 42, 872 34" />
+          <!-- the moment -->
+          <circle class="fork-halo" cx="420" cy="188" r="14" />
+          <circle class="fork-dot" cx="420" cy="188" r="5.5" />
+          <text class="fork-label label-moment" x="420" y="234" text-anchor="middle">the moment</text>
+          <text class="fork-label label-old" x="800" y="216" text-anchor="middle">old pattern</text>
+          <text class="fork-label label-new" x="796" y="18" text-anchor="middle">new choice</text>
+        </svg>
+      </figure>
+    </section>
+
+    <!-- Problem -->
+    <section class="section" id="problem" aria-labelledby="problem-title">
+      <div class="section-inner">
+        <p class="eyebrow">The problem</p>
+        <h2 id="problem-title">Most people don’t lack goals.</h2>
+        <p class="lead">
+          They know they should sleep earlier, start the hard task, or put the
+          phone down. But when that exact moment arrives, the old pattern runs
+          on its own.
+        </p>
+        <ul class="know-list">
+          <li>“I should sleep earlier.”</li>
+          <li>“I should start this task.”</li>
+          <li>“I should stop scrolling.”</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Why current methods fail -->
+    <section class="section" aria-labelledby="gap-title">
+      <div class="section-inner">
+        <p class="eyebrow">The gap</p>
+        <h2 id="gap-title">Motivation fades. Reminders come too late.</h2>
+        <p class="lead">
+          Plans live in calm hours. Habits break in charged seconds. By the time
+          a reminder arrives, the scroll has already started.
+        </p>
+      </div>
+    </section>
+
+    <!-- New approach -->
+    <section class="section" aria-labelledby="approach-title">
+      <div class="section-inner section-wide">
+        <p class="eyebrow">The shift</p>
+        <h2 id="approach-title">Rechoose helps in the moment that matters.</h2>
+        <p class="lead">
+          Spot the pattern you keep repeating. Prepare a new choice in advance.
+          Then get support when the hard second actually shows up.
+        </p>
+        <ol class="steps-grid">
+          <li class="step-card">
+            <span class="step-num">01</span>
+            <h3>Recognize</h3>
+            <p>Name the pattern you keep repeating — and the moment it starts.</p>
+          </li>
+          <li class="step-card">
+            <span class="step-num">02</span>
+            <h3>Prepare</h3>
+            <p>Decide a different next step while you’re still calm.</p>
+          </li>
+          <li class="step-card">
+            <span class="step-num">03</span>
+            <h3>Rechoose</h3>
+            <p>When the moment hits, take the step you prepared — not the default.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Sales test: moment + email -->
+    <section class="section waitlist-section" id="waitlist" aria-labelledby="waitlist-title">
+      <div class="panel">
+        <p class="eyebrow eyebrow-light">Join the waitlist</p>
+        <h2 id="waitlist-title">What moment do you struggle with most?</h2>
+        <p class="lead lead-light">
+          Tell us the moment that keeps winning. We’ll send early access when
+          Rechoose is ready for it.
+        </p>
+
+        <form class="waitlist-form" id="waitlist-form" novalidate>
+          <fieldset class="moments">
+            <legend class="sr-only">Choose your hardest moment</legend>
+            <label class="moment">
+              <input type="radio" name="moment" value="cant-start" required>
+              <span>I can’t start important tasks</span>
+            </label>
+            <label class="moment">
+              <input type="radio" name="moment" value="night-scroll">
+              <span>I scroll too much at night</span>
+            </label>
+            <label class="moment">
+              <input type="radio" name="moment" value="break-plans">
+              <span>I break my own plans</span>
+            </label>
+            <label class="moment">
+              <input type="radio" name="moment" value="old-habits">
+              <span>I fall back into old habits</span>
+            </label>
+          </fieldset>
+
+          <div class="email-row">
+            <label class="sr-only" for="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@email.com"
+              required
+            >
+            <button class="btn btn-accent" type="submit">Join the waitlist</button>
+          </div>
+
+          <p class="form-note">No spam. Just early access and a few questions that help shape Rechoose.</p>
+          <p class="form-error" id="form-error" hidden role="alert"></p>
+        </form>
+
+        <div class="success" id="success" hidden tabindex="-1">
+          <h3>You’re on the list.</h3>
+          <p>We’ll reach out when there’s something worth your attention for that moment.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><span class="wordmark">Rechoose</span><span class="footer-sep">·</span>a different next step, when it counts</p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

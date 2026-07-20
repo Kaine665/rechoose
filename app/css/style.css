@@ -616,3 +616,42 @@ textarea.input-dark:focus { border-color: var(--calm-accent); }
   letter-spacing: 2px;
   margin: 28px 0 10px;
 }
+
+/* 语言切换 */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.lang-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  transition: background .15s, color .15s;
+}
+
+.lang-btn.active {
+  background: var(--green-soft);
+  color: var(--green-deep);
+  font-weight: 600;
+}
+
+.lang-switch--home {
+  display: flex;
+  justify-content: center;
+  margin: 20px auto 0;
+  width: fit-content;
+}
+
+.lang-switch--onboard {
+  display: flex;
+  justify-content: center;
+  margin: 20px auto 0;
+  width: fit-content;
+}

@@ -1,82 +1,83 @@
-# 重新选择
+# Rechoose
 
-> 当冲动来临时,帮你重新获得一次选择的机会。
+> When an urge arises, help yourself reclaim a moment of choice.
 
-一个遵循 **SLC(Simple / Lovely / Complete)** 理念的个人行为改变工具。
-不计天数、不评判、不羞辱——只在最难的那几分钟,陪用户走过去。
-
-## 核心闭环
+Monorepo: marketing site and product app live side by side, each self-contained.
 
 ```
-发现冲动 → 启动帮助 → 执行自己的策略 → 记录结果 → 看到变化
+/
+├── landing/     # English marketing / waitlist (showcase)
+├── app/         # Interactive product (zh / en)
+├── scripts/     # Dev helpers
+└── vercel.json  # Optional: single-project monorepo deploy
 ```
 
-对应三个页面:
+## Packages
 
-| 页面 | 状态 | 作用 |
-|------|------|------|
-| 🌱 此刻(Help) | 当下,可能快失控 | 一个大按钮,减少思考,带用户呼吸并执行计划 |
-| 🧭 计划(Plans) | 平静时 | 建立"触发 → 替代行动"策略,内置模板 |
-| 🌿 成长(Progress) | 复盘时 | 冲动次数、改变行为次数、平均反应距离、最有效行动 |
+| Path | Role | Default language |
+|------|------|------------------|
+| `landing/` | Showcase + waitlist | English only |
+| `app/` | Help / Plans / Growth | zh & en (`t()`) |
 
-## 技术说明
-
-- 纯 HTML / CSS / 原生 JavaScript,**零依赖、零构建、零服务器**
-- 数据全部保存在本机 `localStorage`,不上传、无账号
-- 支持导出 / 导入 JSON 备份,换设备可迁移
-- 内置 Service Worker + PWA manifest:首次访问后完全离线可用,可"添加到主屏幕"当 App 用
-- 移动端优先设计,桌面端自适应
-
-即使以后不再更新,用户也能一直使用。
-
-## 运行方式
-
-任选其一:
-
-1. **直接双击 `index.html`** —— 全部功能可用(file:// 下仅离线缓存不生效,但本来就是本地文件)
-2. 任意静态服务器,例如:
+## Run locally
 
 ```bash
 python -m http.server 8080
-# 打开 http://localhost:8080
 ```
 
-部署到 Vercel 等静态托管即可获得完整 PWA 离线体验。
+- Landing: http://localhost:8080/landing/
+- App: http://localhost:8080/app/
 
-## 在线访问
+## Deploy on Vercel
 
-- **GitHub:** https://github.com/Kaine665/rechoose
-- **Vercel:** 在 Vercel 导入上述仓库后,会获得类似 `https://rechoose.vercel.app` 的地址
+### Option A — one project (monorepo root)
 
-## 部署
+Import the repo, Root Directory = `.` (repo root).
 
-### GitHub
+- `/` redirects to `/landing/`
+- App at `/app/`
+
+### Option B — two projects (recommended for separate domains)
+
+Import the **same** GitHub repo twice:
+
+| Vercel project | Root Directory | Domain example |
+|----------------|----------------|----------------|
+| `rechoose-web` | `landing` | `rechoose.com` |
+| `rechoose-app` | `app` | `app.rechoose.com` |
+
+If landing and app use different domains, set the app URL before `main.js`:
+
+```html
+<script>window.RECHOOSE_APP_URL = "https://app.rechoose.com";</script>
+<script src="main.js"></script>
+```
+
+## App notes
+
+- Data stays in `localStorage` (export / import backups)
+- PWA + Service Worker scoped under `/app/`
+- i18n: `app/js/i18n.js` — English-first; only primary `zh*` becomes Chinese; iOS defaults to `en`
 
 ```bash
-git init
-git add .
-git commit -m "feat: initial SLC prototype"
-gh repo create rechoose --public --source=. --push
+node scripts/check-i18n.js
 ```
 
-### Vercel
-
-1. 打开 [vercel.com/new](https://vercel.com/new),导入 GitHub 仓库
-2. 框架选 **Other**,Build Command 留空,Output Directory 填 `.`
-3. 点击 Deploy
-
-或用 CLI:
-
-```bash
-npx vercel --prod
-```
-
-## 文件结构
+## Structure detail
 
 ```
-index.html      入口页面
-css/style.css   全部样式(含帮助流程的夜间安抚配色)
-js/app.js       全部逻辑(数据层、路由、三个页面、帮助流程、导入导出)
-sw.js           离线缓存
-manifest.json   PWA 配置
+landing/
+  index.html
+  style.css
+  main.js
+  vercel.json          # empty placeholder for Root=landing deploys
+
+app/
+  index.html
+  css/style.css
+  js/i18n.js
+  js/app.js
+  sw.js
+  manifest.json
+  vercel.json          # SW / manifest headers when Root=app
 ```

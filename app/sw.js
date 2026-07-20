@@ -1,9 +1,9 @@
 /* 离线缓存:首次访问后,即使完全断网也能正常使用 */
-const CACHE = "rechoose-v1";
+const CACHE = "rechoose-v4";
 const ASSETS = [
-  "./",
   "./index.html",
   "./css/style.css",
+  "./js/i18n.js",
   "./js/app.js",
   "./manifest.json"
 ];

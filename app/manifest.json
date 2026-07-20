@@ -1,8 +1,8 @@
 {
-  "name": "重新选择",
-  "short_name": "重新选择",
-  "description": "当冲动来临时,帮你重新获得一次选择的机会。",
-  "lang": "zh-CN",
+  "name": "Rechoose",
+  "short_name": "Rechoose",
+  "description": "When an urge arises, help yourself reclaim a moment of choice.",
+  "lang": "en",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f6f3ec",
