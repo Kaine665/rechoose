@@ -1,5 +1,5 @@
 /* =====================================================
-   Rechoose — reclaim a moment of choice when an urge arises.
+   Rechoose — choose when clear, act when it counts.
    Zero dependencies. Data stays in localStorage.
    ===================================================== */
 "use strict";

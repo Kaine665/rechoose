@@ -1,7 +1,7 @@
 {
   "name": "Rechoose",
   "short_name": "Rechoose",
-  "description": "When an urge arises, help yourself reclaim a moment of choice.",
+  "description": "Prepare a different response, then act when an old pattern pulls you back.",
   "lang": "en",
   "start_url": "./index.html",
   "display": "standalone",

@@ -1,6 +1,6 @@
 # Rechoose
 
-> When an urge arises, help yourself reclaim a moment of choice.
+> Choose when clear. Act when it counts.
 
 Monorepo: marketing site and product app live side by side, each self-contained.
 
