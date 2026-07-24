@@ -14,3 +14,7 @@ desktop.ini
 
 # Logs
 *.log
+
+# Deployment secrets and local database state
+deploy/supabase-minimal/.env
+deploy/supabase-minimal/data/

@@ -1,0 +1,54 @@
+name: betterlife-supabase-minimal
+
+services:
+  db:
+    image: postgres:17.6-alpine
+    container_name: betterlife-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: betterlife
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGRST_API_PASSWORD: ${PGRST_API_PASSWORD}
+    volumes:
+      - betterlife_db_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d betterlife"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  rest:
+    image: postgrest/postgrest:v14.12
+    container_name: betterlife-rest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${PGRST_API_PASSWORD}@db:5432/betterlife
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_MAX_ROWS: 0
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  betterlife_db_data:

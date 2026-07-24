@@ -13,7 +13,7 @@
   const form = document.getElementById("waitlist-form");
   const success = document.getElementById("success");
   const errorEl = document.getElementById("form-error");
-  const STORAGE_KEY = "rechoose_waitlist";
+  const LEGACY_STORAGE_KEY = "rechoose_waitlist";
 
   if (!form || !success) return;
 
@@ -23,28 +23,7 @@
     errorEl.textContent = message || "";
   }
 
-  function readList() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveEntry(entry) {
-    const list = readList();
-    const exists = list.some(
-      (item) => item.email.toLowerCase() === entry.email.toLowerCase()
-    );
-    if (!exists) {
-      list.push(entry);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
-    return !exists;
-  }
-
-  form.addEventListener("submit", function (event) {
+  form.addEventListener("submit", async function (event) {
     event.preventDefault();
     showError("");
 
@@ -68,12 +47,31 @@
       submitBtn.textContent = "Joining…";
     }
 
-    saveEntry({
-      email,
-      moment,
-      createdAt: new Date().toISOString(),
-      page: "landing-v1",
-    });
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ email, moment }),
+      });
+
+      // A duplicate email is already safely on the list.
+      if (!response.ok && response.status !== 409) {
+        throw new Error(`Waitlist request failed: ${response.status}`);
+      }
+
+      // Remove any data left by the former browser-only implementation.
+      try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* ignore */ }
+    } catch {
+      showError("Couldn't join right now. Please try again.");
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Join the waitlist";
+      }
+      return;
+    }
 
     form.hidden = true;
     success.hidden = false;
