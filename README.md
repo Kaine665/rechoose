@@ -58,10 +58,17 @@ If landing and app use different domains, set the app URL before `main.js`:
 - Data stays in `localStorage` (export / import backups)
 - PWA + Service Worker scoped under `/app/`
 - i18n: `app/js/i18n.js` — English-first; only primary `zh*` becomes Chinese; iOS defaults to `en`
+- Native iOS wrapper: `npm install && npm run ios:sync`
+- The Capacitor CLI is used only to copy web assets; the shipping app links only Apple SDK frameworks.
 
 ```bash
-node scripts/check-i18n.js
+npm run check
 ```
+
+For App Store preparation and metadata, see:
+
+- `docs/APP_STORE_CHECKLIST.md`
+- `docs/APP_STORE_METADATA.md`
 
 ## Structure detail
 

@@ -36,6 +36,12 @@ function saveData() {
   }
 }
 
+function nativeHaptic(style = "light") {
+  try {
+    window.webkit?.messageHandlers?.haptic?.postMessage(style);
+  } catch (_) { /* Web and unsupported native containers stay silent */ }
+}
+
 let DB = loadData();
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -466,7 +472,9 @@ function helpSteps() {
     } else {
       help.doneSteps.add(i);
       btn.classList.add("done");
+      nativeHaptic("light");
       if (help.doneSteps.size === p.steps.length) {
+        nativeHaptic("success");
         toast(t("help.steps.allDone"));
       }
     }
@@ -921,13 +929,24 @@ function renderProgress() {
 /* ---------------- Import / export ---------------- */
 
 function exportData() {
-  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const filename = `${t("progress.exportName")}-${stamp}.json`;
+  const content = JSON.stringify(DB, null, 2);
+  const nativeExporter = window.webkit?.messageHandlers?.exportBackup;
+
+  if (nativeExporter) {
+    nativeExporter.postMessage({ filename, content });
+    nativeHaptic("success");
+    toast(t("progress.exported"));
+    return;
+  }
+
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
   a.href = url;
-  a.download = `${t("progress.exportName")}-${stamp}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
   toast(t("progress.exported"));

@@ -15,6 +15,18 @@ desktop.ini
 # Logs
 *.log
 
+# Node
+node_modules/
+npm-debug.log*
+
+# Xcode user state and build products
+.build/
+ios/App/DerivedData/
+ios/App/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcworkspace/xcuserdata/
+*.xcuserstate
+
 # Deployment secrets and local database state
 deploy/supabase-minimal/.env
 deploy/supabase-minimal/data/

@@ -1,0 +1,24 @@
+{
+  "name": "rechoose",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rechoose web app and iOS application",
+  "scripts": {
+    "check": "npm run check:i18n && npm run check:i18n-keys",
+    "check:i18n": "node scripts/check-i18n.js",
+    "check:i18n-keys": "node scripts/check-i18n-keys.js",
+    "ios:sync": "npx cap copy ios",
+    "ios:open": "npx cap open ios",
+    "ios:build": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/ios CODE_SIGNING_ALLOWED=NO build"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.4.2",
+    "@capacitor/ios": "8.4.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.4.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

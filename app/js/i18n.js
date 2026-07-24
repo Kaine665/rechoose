@@ -90,7 +90,7 @@ const zh = {
   "home.todayChanged": "今天你已经做出 {n} 次不同的选择 🌿",
   "home.todayPracticed": "今天你已经练习了 {n} 次,来了就是进步",
   "home.retro": "🕯️ 平静地补记刚才的一次经历",
-  "home.privacy": "你的一切记录只保存在这台设备上,<br>不会上传,没有人看得到。",
+  "home.privacy": "你的一切记录只保存在这台设备上,<br>不会上传,没有人看得到。<br><a href=\"privacy.html\">隐私政策</a> · <a href=\"support.html\">帮助与支持</a>",
 
   "help.exit": "收起",
   "help.arrive.title": "你来了。",
@@ -278,7 +278,7 @@ const en = {
   "home.todayChanged": "You've already made {n} different choice(s) today 🌿",
   "home.todayPracticed": "You've practiced {n} time(s) today — showing up counts",
   "home.retro": "🕯️ Calmly log a recent moment",
-  "home.privacy": "Everything stays on this device.<br>Nothing is uploaded. No one else can see it.",
+  "home.privacy": "Everything stays on this device.<br>Nothing is uploaded. No one else can see it.<br><a href=\"privacy.html\">Privacy Policy</a> · <a href=\"support.html\">Support</a>",
 
   "help.exit": "Close",
   "help.arrive.title": "You're here.",

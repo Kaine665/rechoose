@@ -1,0 +1,11 @@
+{
+  "appId": "com.kaine665.rechoose",
+  "appName": "Rechoose",
+  "webDir": "app",
+  "ios": {
+    "backgroundColor": "#f6f3ec",
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile",
+    "scrollEnabled": true
+  }
+}
