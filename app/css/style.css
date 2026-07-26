@@ -648,13 +648,6 @@ textarea.input-dark:focus { border-color: var(--calm-accent); }
   font-weight: 600;
 }
 
-.lang-switch--home {
-  display: flex;
-  justify-content: center;
-  margin: 20px auto 0;
-  width: fit-content;
-}
-
 .lang-switch--onboard {
   display: flex;
   justify-content: center;

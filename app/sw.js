@@ -1,5 +1,5 @@
 /* 离线缓存:首次访问后,即使完全断网也能正常使用 */
-const CACHE = "rechoose-v6";
+const CACHE = "rechoose-v7";
 const ASSETS = [
   "./index.html",
   "./privacy.html",

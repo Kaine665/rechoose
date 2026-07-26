@@ -300,10 +300,8 @@ function renderHome() {
         <button class="btn btn-ghost btn-block" id="btn-retro">${t("home.retro")}</button>
       </div>
       <p class="home-note">${t("home.privacy")}</p>
-      ${langSwitcherHtml("lang-switch--home")}
     </div>`;
 
-  bindLangSwitcher(onLangChange);
   $("#btn-help").addEventListener("click", () => startHelp(false));
   $("#btn-retro").addEventListener("click", () => startHelp(true));
 }
