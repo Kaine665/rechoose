@@ -1,11 +1,17 @@
 /* 离线缓存:首次访问后,即使完全断网也能正常使用 */
-const CACHE = "rechoose-v6";
+const CACHE = "rechoose-v13";
 const ASSETS = [
   "./index.html",
   "./privacy.html",
   "./support.html",
-  "./css/style.css",
+  "./css/base.css",
+  "./css/web.css",
+  "./css/ios.css",
+  "./js/platform.js",
   "./js/i18n.js",
+  "./js/core/data.js",
+  "./js/core/format.js",
+  "./js/ui/primitives.js",
   "./js/app.js",
   "./manifest.json",
   "./assets/app-icon.png"
@@ -25,21 +31,10 @@ self.addEventListener("activate", e => {
   self.clients.claim();
 });
 
-/* 缓存优先:保证永远可用;后台再尝试更新缓存 */
+/* Cache one complete release at a time so HTML and split JS/CSS never mix versions. */
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const fresh = fetch(e.request)
-        .then(res => {
-          if (res.ok && new URL(e.request.url).origin === location.origin) {
-            const clone = res.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || fresh;
-    })
+    caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
