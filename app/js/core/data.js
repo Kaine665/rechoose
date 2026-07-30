@@ -4,7 +4,7 @@
 const STORE_KEY = "rechoose.data.v1";
 
 const DEFAULT_DATA = {
-  version: 1,
+  version: 3,
   onboarded: false,
   createdAt: Date.now(),
   plans: [],
@@ -43,7 +43,21 @@ function getTemplates() {
     name: t(`tpl.${id}.name`),
     trigger: t(`tpl.${id}.trigger`),
     desc: t(`tpl.${id}.desc`),
-    steps: [1, 2, 3].map(n => t(`tpl.${id}.step${n}`))
+    actionPlans: [1, 2, 3].map(number => ({
+      id: `${id}-action-${number}`,
+      name: t(`tpl.${id}.action${number}.name`),
+      steps: Array.from(
+        { length: number === 3 ? 2 : 1 },
+        (_, index) => t(`tpl.${id}.action${number}.step${index + 1}`)
+      )
+    }))
+  }));
+}
+
+function cloneActionPlans(actionPlans) {
+  return (actionPlans || []).map(actionPlan => ({
+    ...actionPlan,
+    steps: [...actionPlan.steps]
   }));
 }
 
@@ -54,7 +68,7 @@ function planFromTemplate(template) {
     emoji: template.emoji,
     name: template.name,
     trigger: template.trigger,
-    steps: [...template.steps],
+    actionPlans: cloneActionPlans(template.actionPlans),
     createdAt: Date.now()
   };
 }
@@ -69,6 +83,46 @@ function localizePlan(plan) {
     emoji: template.emoji,
     name: template.name,
     trigger: template.trigger,
-    steps: [...template.steps]
+    actionPlans: cloneActionPlans(template.actionPlans)
   };
+}
+
+/*
+ * v2 made bundled examples editable user plans.
+ * v3 introduces multiple action plans per situation. Existing custom plans
+ * keep their ordered steps as one action plan; bundled plans gain the new
+ * starter action plans.
+ */
+function migrateData() {
+  const version = Number(DB.version || 1);
+
+  if (version < 2) {
+    const usedTemplateIds = new Set(DB.plans.map(plan => plan.templateId).filter(Boolean));
+    getTemplates().forEach(template => {
+      if (!usedTemplateIds.has(template.id)) DB.plans.push(planFromTemplate(template));
+    });
+  }
+
+  if (version < 3) {
+    DB.plans.forEach(plan => {
+      const template = plan.templateId
+        ? getTemplates().find(item => item.id === plan.templateId)
+        : null;
+      plan.actionPlans = template
+        ? cloneActionPlans(template.actionPlans)
+        : [{
+            id: uid(),
+            name: t("data.migratedActionPlan"),
+            steps: Array.isArray(plan.steps) && plan.steps.length
+              ? [...plan.steps]
+              : [t("data.migratedAction")]
+          }];
+      delete plan.steps;
+    });
+  }
+
+  if (version < 3) {
+    DB.version = 3;
+    saveData();
+  }
 }

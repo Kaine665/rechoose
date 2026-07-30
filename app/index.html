@@ -33,7 +33,12 @@
   <script src="js/ui/primitives.js"></script>
   <script src="js/app.js"></script>
   <script>
-    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    const isLocalPreview = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    if ("serviceWorker" in navigator && isLocalPreview) {
+      navigator.serviceWorker.getRegistrations()
+        .then(registrations => registrations.forEach(registration => registration.unregister()))
+        .catch(() => {});
+    } else if ("serviceWorker" in navigator && location.protocol !== "file:") {
       navigator.serviceWorker.register("sw.js").catch(() => {});
     }
   </script>

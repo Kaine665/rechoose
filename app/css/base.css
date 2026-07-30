@@ -83,7 +83,7 @@ input, textarea, select {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--line);
-  padding: 8px 8px calc(8px + var(--safe-bottom));
+  padding: 6px 8px max(4px, var(--safe-bottom));
   z-index: 50;
 }
 
@@ -352,6 +352,36 @@ textarea.input { resize: vertical; min-height: 72px; }
 }
 .step-item.done .step-text { text-decoration: line-through; }
 
+.step-order {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid #5a6a5c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--calm-ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.step-item.done .step-order {
+  background: var(--calm-accent);
+  border-color: var(--calm-accent);
+  color: #23301f;
+}
+
+.step-item.locked {
+  opacity: .42;
+  cursor: default;
+}
+
+.btn-calm:disabled {
+  opacity: .42;
+  cursor: default;
+}
+
 /* 记录结果 */
 .outcome-btn {
   width: 100%;
@@ -365,6 +395,20 @@ textarea.input { resize: vertical; min-height: 72px; }
 }
 .outcome-btn .ob-title { font-weight: 700; font-size: 17px; }
 .outcome-btn .ob-sub { font-size: 13px; color: var(--calm-ink-soft); margin-top: 2px; }
+.outcome-btn-custom { border-style: dashed; }
+
+.action-plan-pick { position: relative; padding-right: 86px; }
+.action-chain-badge {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  border: 1px solid #536255;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--calm-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
 
 .chip-dark {
   border-color: #46524a;
@@ -414,6 +458,19 @@ textarea.input-dark:focus { border-color: var(--calm-accent); }
 }
 .plan-trigger { font-size: 14px; color: var(--ink-soft); }
 
+.action-plan-summaries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.action-plan-summary {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+.aps-name { font-size: 14px; font-weight: 700; }
+.aps-steps { margin-top: 2px; color: var(--ink-soft); font-size: 13px; }
+
 .plan-steps { list-style: none; }
 .plan-steps li {
   display: flex;
@@ -454,6 +511,35 @@ textarea.input-dark:focus { border-color: var(--calm-accent); }
 .step-edit-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .step-edit-row .input { flex: 1; }
 .step-remove { color: var(--ink-faint); font-size: 18px; padding: 6px 10px; border-radius: 10px; }
+
+.action-plan-editors {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.action-plan-editor {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.action-plan-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+.action-plan-step-label {
+  margin: 12px 0 6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+.action-plan-editor .hint { margin-top: 8px; }
 
 /* ============ 成长页 ============ */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

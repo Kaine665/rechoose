@@ -39,11 +39,11 @@
   [data-platform="web"] .tabbar {
     left: 50%;
     right: auto;
-    bottom: 24px;
+    bottom: 8px;
     transform: translateX(-50%);
     border: 1px solid var(--line);
     border-radius: 999px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     gap: 8px;
     box-shadow: var(--shadow);
   }

@@ -50,7 +50,8 @@
 [data-platform="ios"] .tabbar {
   background: rgba(249, 249, 249, .94);
   border-top-color: rgba(60, 60, 67, .24);
-  padding-top: 6px;
+  padding-top: 5px;
+  padding-bottom: max(4px, calc(var(--safe-bottom) - 6px));
 }
 
 [data-platform="ios"] .tab {

@@ -78,11 +78,11 @@ function renderOnboarding(step = 0) {
     <h1>${t("onboard.3.title")}</h1>
     <p>${t("onboard.3.body")}</p>
     <div class="stack" style="margin-top:24px; text-align:left;">
-      ${templates.map((tpl, i) => `
-        <button class="tpl-card" data-tpl="${i}">
+      ${templates.map(tpl => `
+        <div class="tpl-card">
           <div class="tc-name">${tpl.emoji} ${esc(tpl.name)}</div>
           <div class="tc-desc">${t("common.triggerPrefix")}${esc(tpl.trigger)}</div>
-        </button>`).join("")}
+        </div>`).join("")}
     </div>
     `
   ];
@@ -93,24 +93,23 @@ function renderOnboarding(step = 0) {
       <div class="onboard-dots">${dots}</div>
       ${step < 2
         ? `<button class="btn btn-primary btn-block" id="ob-next">${t("common.continue")}</button>`
-        : `<button class="btn btn-ghost btn-block" id="ob-skip">${t("onboard.skip")}</button>`}
+        : `<button class="btn btn-primary btn-block" id="ob-start">${t("onboard.useStarterPlans")}</button>`}
       ${langSwitcherHtml("lang-switch--onboard")}
     </div>`;
 
   bindLangSwitcher(onLangChange);
   $("#ob-next")?.addEventListener("click", () => renderOnboarding(step + 1));
-  $("#ob-skip")?.addEventListener("click", finishOnboarding);
-  $$("[data-tpl]").forEach(btn => btn.addEventListener("click", () => {
-    const tpl = templates[+btn.dataset.tpl];
-    DB.plans.push(planFromTemplate(tpl));
-    finishOnboarding();
-    toast(t("onboard.firstPlanReady"));
-  }));
+  $("#ob-start")?.addEventListener("click", finishOnboarding);
 
   function finishOnboarding() {
+    if (!DB.plans.length) {
+      DB.plans = templates.map(planFromTemplate);
+    }
     DB.onboarded = true;
+    DB.version = 3;
     saveData();
     nav("home");
+    toast(t("onboard.starterPlansReady"));
   }
 }
 
@@ -149,15 +148,17 @@ const help = {
   startTs: 0,
   timerInt: null,
   plan: null,
-  doneSteps: new Set(),
-  recordOnly: false
+  actionPlan: null,
+  otherContext: false,
+  doneSteps: new Set()
 };
 
 function startHelp() {
   help.startTs = Date.now();
   help.plan = null;
+  help.actionPlan = null;
+  help.otherContext = false;
   help.doneSteps = new Set();
-  help.recordOnly = false;
 
   const el = document.createElement("div");
   el.className = "help-overlay";
@@ -202,8 +203,6 @@ function helpBody(html) {
 
 function helpPickPlan() {
   const plans = DB.plans.map(localizePlan);
-  const usedTemplateIds = new Set(DB.plans.map(p => p.templateId).filter(Boolean));
-  const templates = getTemplates().filter(tpl => !usedTemplateIds.has(tpl.id));
   const body = helpBody(`
     <div class="help-title">${t("help.pick.title")}</div>
     <div class="help-sub">${t("help.pick.sub")}</div>
@@ -216,147 +215,191 @@ function helpPickPlan() {
           <div class="pp-name">${p.emoji} ${esc(p.name)}</div>
           <div class="pp-trigger">${t("common.triggerPrefix")}${esc(p.trigger)}</div>
         </button>`).join("")}` : ""}
-      ${templates.length ? `
-        <div class="help-choice-label">${t("help.pick.templates")}</div>
-        ${templates.map(tpl => `
-        <button class="plan-pick" data-template="${tpl.id}">
-          <div class="pp-name">${tpl.emoji} ${esc(tpl.name)}</div>
-          <div class="pp-trigger">${t("common.triggerPrefix")}${esc(tpl.trigger)}</div>
-        </button>`).join("")}` : ""}
-      <div class="help-choice-label">${t("help.pick.noPlan")}</div>
-      <button class="plan-pick plan-pick-record" id="h-record">
-        <div class="pp-name">${t("help.pick.record")}</div>
-        <div class="pp-trigger">${t("help.pick.recordSub")}</div>
+      <div class="help-choice-label">${t("help.pick.otherLabel")}</div>
+      <button class="plan-pick plan-pick-record" id="h-other-context">
+        <div class="pp-name">${t("help.pick.other")}</div>
+        <div class="pp-trigger">${t("help.pick.otherSub")}</div>
       </button>
     </div>`);
 
   $$("[data-plan]", body).forEach(btn => btn.addEventListener("click", () => {
     help.plan = localizePlan(DB.plans.find(p => p.id === btn.dataset.plan));
-    helpSteps();
+    helpChooseActionPlan();
   }));
 
-  $$("[data-template]", body).forEach(btn => btn.addEventListener("click", () => {
-    const tpl = getTemplates().find(item => item.id === btn.dataset.template);
-    if (!tpl) return;
-    help.plan = { ...tpl, id: `__template__${tpl.id}` };
-    helpSteps();
-  }));
-
-  $("#h-record", body).addEventListener("click", () => {
-    help.recordOnly = true;
+  $("#h-other-context", body).addEventListener("click", () => {
+    help.otherContext = true;
     help.plan = null;
-    clearInterval(help.timerInt);
-    const timerEl = $("#help-timer", help.overlay);
-    if (timerEl) timerEl.textContent = "";
-    helpOutcome();
+    helpChooseActionPlan();
   });
 }
 
-function helpSteps() {
+function helpAlternativeButtons() {
+  return `
+    <button class="outcome-btn" id="h-same">
+      <div class="ob-title">${t("help.choose.same")}</div>
+      <div class="ob-sub">${t("help.choose.sameSub")}</div>
+    </button>
+    <button class="outcome-btn outcome-btn-custom" id="h-custom">
+      <div class="ob-title">${t("help.choose.custom")}</div>
+      <div class="ob-sub">${t("help.choose.customSub")}</div>
+    </button>`;
+}
+
+function bindHelpAlternatives(body) {
+  $("#h-same", body).addEventListener("click", () => {
+    const actionPlan = help.actionPlan;
+    saveHelpRecord({
+      outcome: "followed",
+      completedSteps: actionPlan
+        ? [...help.doneSteps].map(index => actionPlan.steps[index])
+        : []
+    });
+  });
+  $("#h-custom", body).addEventListener("click", helpCustomAction);
+}
+
+function helpChooseActionPlan() {
   const p = help.plan;
   const body = helpBody(`
-    <div class="help-title">${p.emoji} ${esc(p.name)}</div>
-    <div class="help-sub">${t("help.steps.sub")}</div>
+    <div class="help-title">${p
+      ? `${p.emoji} ${esc(p.name)}`
+      : t("help.choose.otherTitle")}</div>
+    <div class="help-sub">${t(p ? "help.actionPlans.sub" : "help.choose.otherSub")}</div>
+    <div class="spacer"></div>
+    <div class="help-actions">
+      ${p ? p.actionPlans.map((actionPlan, index) => `
+        <button class="outcome-btn action-plan-pick" data-action-plan="${index}">
+          <div class="ob-title">🌿 ${esc(actionPlan.name)}</div>
+          <div class="ob-sub">${actionPlan.steps.map(esc).join(" → ")}</div>
+          ${actionPlan.steps.length > 1
+            ? `<div class="action-chain-badge">${t("help.actionPlans.chain", { n: actionPlan.steps.length })}</div>`
+            : ""}
+        </button>`).join("") : ""}
+      ${helpAlternativeButtons()}
+    </div>`);
+
+  $$("[data-action-plan]", body).forEach(btn => btn.addEventListener("click", () => {
+    const actionPlan = p.actionPlans[+btn.dataset.actionPlan];
+    help.actionPlan = actionPlan;
+    help.doneSteps = new Set();
+    if (actionPlan.steps.length === 1) {
+      saveHelpRecord({
+        outcome: "changed",
+        helpedStep: actionPlan.steps[0],
+        completedSteps: [...actionPlan.steps]
+      });
+      return;
+    }
+    helpRunActionPlan();
+  }));
+
+  bindHelpAlternatives(body);
+}
+
+function helpRunActionPlan() {
+  const actionPlan = help.actionPlan;
+  const body = helpBody(`
+    <div class="help-title">${esc(actionPlan.name)}</div>
+    <div class="help-sub">${t("help.sequence.sub")}</div>
     <div class="step-list">
-      ${p.steps.map((s, i) => `
-        <button class="step-item" data-step="${i}">
-          <span class="step-check">✓</span>
-          <span class="step-text">${esc(s)}</span>
+      ${actionPlan.steps.map((step, i) => `
+        <button class="step-item ${i > 0 ? "locked" : ""}" data-sequence-step="${i}" ${i > 0 ? "disabled" : ""}>
+          <span class="step-order">${i + 1}</span>
+          <span class="step-text">${esc(step)}</span>
         </button>`).join("")}
     </div>
     <div class="spacer"></div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-done">${t("help.steps.done")}</button>
+      <button class="btn btn-calm btn-block" id="h-sequence-complete" disabled>${t("help.sequence.finishLocked")}</button>
+      ${helpAlternativeButtons()}
     </div>`);
 
-  $$(".step-item", body).forEach(btn => btn.addEventListener("click", () => {
-    const i = +btn.dataset.step;
-    if (help.doneSteps.has(i)) {
-      help.doneSteps.delete(i);
-      btn.classList.remove("done");
-    } else {
-      help.doneSteps.add(i);
-      btn.classList.add("done");
-      Platform.haptic("light");
-      if (help.doneSteps.size === p.steps.length) {
-        Platform.haptic("success");
-        toast(t("help.steps.allDone"));
-      }
+  $$("[data-sequence-step]", body).forEach(btn => btn.addEventListener("click", () => {
+    const index = +btn.dataset.sequenceStep;
+    if (index !== help.doneSteps.size) return;
+
+    help.doneSteps.add(index);
+    btn.classList.add("done");
+    btn.disabled = true;
+    Platform.haptic("light");
+
+    const next = $(`[data-sequence-step="${index + 1}"]`, body);
+    if (next) {
+      next.disabled = false;
+      next.classList.remove("locked");
+    }
+
+    if (help.doneSteps.size === actionPlan.steps.length) {
+      const complete = $("#h-sequence-complete", body);
+      complete.disabled = false;
+      complete.textContent = t("help.sequence.finish");
+      Platform.haptic("success");
     }
   }));
 
-  $("#h-done", body).addEventListener("click", helpOutcome);
+  $("#h-sequence-complete", body)?.addEventListener("click", () => {
+    saveHelpRecord({
+      outcome: "changed",
+      completedSteps: [...actionPlan.steps]
+    });
+  });
+
+  bindHelpAlternatives(body);
 }
 
-function helpOutcome() {
+function helpCustomAction() {
   const body = helpBody(`
-    <div class="help-title">${help.recordOnly ? t("help.outcome.titleRecord") : t("help.outcome.title")}</div>
-    <div class="help-sub">${t("help.outcome.sub")}</div>
-    <div class="spacer"></div>
-    <div class="help-actions">
-      <button class="outcome-btn" data-outcome="changed">
-        <div class="ob-title">${t("help.outcome.changed")}</div>
-        <div class="ob-sub">${t(help.recordOnly ? "help.outcome.changedSubRecord" : "help.outcome.changedSub")}</div>
-      </button>
-      <button class="outcome-btn" data-outcome="followed">
-        <div class="ob-title">${t("help.outcome.followed")}</div>
-        <div class="ob-sub">${t("help.outcome.followedSub")}</div>
-      </button>
-    </div>`);
-
-  $$("[data-outcome]", body).forEach(btn => btn.addEventListener("click", () => {
-    helpDetail(btn.dataset.outcome);
-  }));
-}
-
-function helpDetail(outcome) {
-  const p = help.plan;
-  const showSteps = outcome === "changed" && p && p.steps.length;
-
-  const body = helpBody(`
-    <div class="help-title">${outcome === "changed" ? t("help.detail.good") : t("help.detail.thanks")}</div>
-    ${showSteps ? `
-      <div class="help-sub" style="margin-top:20px">${t("help.detail.whichStep")}</div>
-      <div class="row" style="justify-content:center; margin-top:12px">
-        ${p.steps.map((s, i) => `<button class="chip chip-dark" data-chip="${i}">${esc(s)}</button>`).join("")}
-      </div>` : ""}
+    <div class="help-title">${t("help.custom.title")}</div>
+    <div class="help-sub">${t("help.custom.sub")}</div>
     <div class="spacer"></div>
     <div class="field">
-      <textarea class="input input-dark" id="h-note" rows="3"
-        placeholder="${esc(t("help.detail.notePh"))}"></textarea>
+      <textarea class="input input-dark" id="h-custom-note" rows="3"
+        placeholder="${esc(t("help.custom.placeholder"))}"></textarea>
     </div>
     <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-save">${t("help.detail.save")}</button>
+      <button class="btn btn-calm btn-block" id="h-custom-save">${t("help.custom.save")}</button>
     </div>`);
 
-  let helped = null;
-  $$("[data-chip]", body).forEach(chip => chip.addEventListener("click", () => {
-    const i = +chip.dataset.chip;
-    if (helped === i) {
-      helped = null;
-      chip.classList.remove("selected");
-    } else {
-      helped = i;
-      $$("[data-chip]", body).forEach(c => c.classList.remove("selected"));
-      chip.classList.add("selected");
+  $("#h-custom-save", body).addEventListener("click", () => {
+    const note = $("#h-custom-note", body).value.trim();
+    if (!note) {
+      toast(t("help.custom.needAction"));
+      return;
     }
-  }));
-
-  $("#h-save", body).addEventListener("click", () => {
-    const delayMin = help.recordOnly ? null : (Date.now() - help.startTs) / 60000;
-    DB.records.push({
-      id: uid(),
-      ts: Date.now(),
-      planId: help.plan?.id ?? null,
-      planName: help.plan?.name ?? null,
-      outcome,
-      delayMin,
-      helpedStep: (helped != null && help.plan) ? help.plan.steps[helped] : null,
-      note: $("#h-note", body).value.trim() || null
+    saveHelpRecord({
+      outcome: "changed",
+      note,
+      completedSteps: help.actionPlan
+        ? [...help.doneSteps].map(index => help.actionPlan.steps[index])
+        : []
     });
-    saveData();
-    helpClose(outcome, delayMin);
   });
+}
+
+function saveHelpRecord({
+  outcome,
+  helpedStep = null,
+  completedSteps = [],
+  note = null
+}) {
+  const delayMin = (Date.now() - help.startTs) / 60000;
+  DB.records.push({
+    id: uid(),
+    ts: Date.now(),
+    planId: help.plan?.id ?? null,
+    planName: help.plan?.name ?? null,
+    actionPlanId: help.actionPlan?.id ?? null,
+    actionPlanName: help.actionPlan?.name ?? null,
+    outcome,
+    delayMin,
+    helpedStep,
+    completedSteps,
+    note
+  });
+  saveData();
+  Platform.haptic(outcome === "changed" ? "success" : "light");
+  helpClose(outcome, delayMin);
 }
 
 function helpClose(outcome, delayMin) {
@@ -364,7 +407,7 @@ function helpClose(outcome, delayMin) {
   const total = DB.records.length;
   const changed = DB.records.filter(r => r.outcome === "changed").length;
 
-  const statHtml = (!help.recordOnly && delayMin != null && outcome === "changed")
+  const statHtml = (delayMin != null && outcome === "changed")
     ? `<div class="close-stat">
          <div class="cs-num">${fmtDelay(delayMin)}</div>
          <div class="cs-label">${t("help.close.delayLabel")}</div>
@@ -410,8 +453,14 @@ function renderPlans() {
           <div class="plan-trigger">${esc(p.trigger)}</div>
         </div>
         <div class="plan-section">
-          <div class="ps-label">${t("plans.actions")}</div>
-          <ol class="plan-steps">${p.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+          <div class="ps-label">${t("plans.actionPlans")}</div>
+          <div class="action-plan-summaries">
+            ${p.actionPlans.map(actionPlan => `
+              <div class="action-plan-summary">
+                <div class="aps-name">${esc(actionPlan.name)}</div>
+                <div class="aps-steps">${actionPlan.steps.map(esc).join(" → ")}</div>
+              </div>`).join("")}
+          </div>
         </div>
       </div>`;
     }).join("")
@@ -462,8 +511,18 @@ function renderPlanEdit(planId) {
   const plan = planId ? DB.plans.find(p => p.id === planId) : null;
   const view = plan ? localizePlan(plan) : null;
   const draft = view
-    ? { emoji: view.emoji, name: view.name, trigger: view.trigger, steps: [...view.steps] }
-    : { emoji: "🌙", name: "", trigger: "", steps: ["", ""] };
+    ? {
+        emoji: view.emoji,
+        name: view.name,
+        trigger: view.trigger,
+        actionPlans: cloneActionPlans(view.actionPlans)
+      }
+    : {
+        emoji: "🌙",
+        name: "",
+        trigger: "",
+        actionPlans: [{ id: uid(), name: "", steps: [""] }]
+      };
 
   function render() {
     app.innerHTML = `
@@ -491,16 +550,37 @@ function renderPlanEdit(planId) {
         </div>
 
         <div class="field">
-          <label>${t("planEdit.steps")}</label>
-          <div id="pe-steps">
-            ${draft.steps.map((s, i) => `
-              <div class="step-edit-row">
-                <input class="input" data-step-input="${i}" placeholder="${esc(t("planEdit.stepPh", { n: i + 1 }))}" value="${esc(s)}" maxlength="30">
-                ${draft.steps.length > 1 ? `<button class="step-remove" data-step-del="${i}" aria-label="${esc(t("planEdit.removeStep"))}">✕</button>` : ""}
+          <label>${t("planEdit.actionPlans")}</label>
+          <div class="action-plan-editors">
+            ${draft.actionPlans.map((actionPlan, actionPlanIndex) => `
+              <div class="action-plan-editor">
+                <div class="action-plan-editor-head">
+                  <span>${t("planEdit.actionPlanNumber", { n: actionPlanIndex + 1 })}</span>
+                  ${draft.actionPlans.length > 1
+                    ? `<button class="step-remove" data-action-plan-del="${actionPlanIndex}" aria-label="${esc(t("planEdit.removeActionPlan"))}">✕</button>`
+                    : ""}
+                </div>
+                <input class="input" data-action-plan-name="${actionPlanIndex}"
+                  placeholder="${esc(t("planEdit.actionPlanNamePh"))}"
+                  value="${esc(actionPlan.name)}" maxlength="24">
+                <div class="action-plan-step-label">${t("planEdit.actionPlanSteps")}</div>
+                ${actionPlan.steps.map((step, stepIndex) => `
+                  <div class="step-edit-row">
+                    <input class="input" data-action-plan-step="${actionPlanIndex}:${stepIndex}"
+                      placeholder="${esc(t("planEdit.stepPh", { n: stepIndex + 1 }))}"
+                      value="${esc(step)}" maxlength="40">
+                    ${actionPlan.steps.length > 1
+                      ? `<button class="step-remove" data-action-plan-step-del="${actionPlanIndex}:${stepIndex}" aria-label="${esc(t("planEdit.removeStep"))}">✕</button>`
+                      : ""}
+                  </div>`).join("")}
+                <button class="btn btn-soft btn-sm" data-action-plan-add-step="${actionPlanIndex}">${t("planEdit.addNextStep")}</button>
+                <div class="hint">${actionPlan.steps.length === 1
+                  ? t("planEdit.singleActionHint")
+                  : t("planEdit.chainHint", { n: actionPlan.steps.length })}</div>
               </div>`).join("")}
           </div>
-          <button class="btn btn-soft btn-sm" id="pe-add-step">${t("planEdit.addStep")}</button>
-          <div class="hint">${t("planEdit.stepsHint")}</div>
+          <button class="btn btn-ghost btn-block" id="pe-add-action-plan">${t("planEdit.addActionPlan")}</button>
+          <div class="hint">${t("planEdit.actionPlansHint")}</div>
         </div>
 
         <div class="spacer"></div>
@@ -519,32 +599,60 @@ function renderPlanEdit(planId) {
       render();
     }));
 
-    $("#pe-add-step").addEventListener("click", () => {
+    $$("[data-action-plan-add-step]").forEach(button => button.addEventListener("click", () => {
       syncDraft();
-      draft.steps.push("");
+      const actionPlanIndex = +button.dataset.actionPlanAddStep;
+      draft.actionPlans[actionPlanIndex].steps.push("");
       render();
-      $$("[data-step-input]").at(-1)?.focus();
-    });
+      const stepIndex = draft.actionPlans[actionPlanIndex].steps.length - 1;
+      $(`[data-action-plan-step="${actionPlanIndex}:${stepIndex}"]`)?.focus();
+    }));
 
-    $$("[data-step-del]").forEach(b => b.addEventListener("click", () => {
+    $$("[data-action-plan-step-del]").forEach(button => button.addEventListener("click", () => {
       syncDraft();
-      draft.steps.splice(+b.dataset.stepDel, 1);
+      const [actionPlanIndex, stepIndex] = button.dataset.actionPlanStepDel.split(":").map(Number);
+      draft.actionPlans[actionPlanIndex].steps.splice(stepIndex, 1);
       render();
     }));
+
+    $$("[data-action-plan-del]").forEach(button => button.addEventListener("click", () => {
+      syncDraft();
+      draft.actionPlans.splice(+button.dataset.actionPlanDel, 1);
+      render();
+    }));
+
+    $("#pe-add-action-plan").addEventListener("click", () => {
+      syncDraft();
+      draft.actionPlans.push({ id: uid(), name: "", steps: [""] });
+      render();
+      $(`[data-action-plan-name="${draft.actionPlans.length - 1}"]`)?.focus();
+    });
 
     $("#pe-save").addEventListener("click", () => {
       syncDraft();
       const name = draft.name.trim();
       const trigger = draft.trigger.trim();
-      const steps = draft.steps.map(s => s.trim()).filter(Boolean);
+      const actionPlans = draft.actionPlans.map(actionPlan => ({
+        id: actionPlan.id || uid(),
+        name: actionPlan.name.trim(),
+        steps: actionPlan.steps.map(step => step.trim()).filter(Boolean)
+      }));
       if (!name) { toast(t("planEdit.needName")); return; }
-      if (!steps.length) { toast(t("planEdit.needStep")); return; }
+      if (!actionPlans.length) { toast(t("planEdit.needActionPlan")); return; }
+      if (actionPlans.some(actionPlan => !actionPlan.name)) {
+        toast(t("planEdit.needActionPlanName"));
+        return;
+      }
+      if (actionPlans.some(actionPlan => !actionPlan.steps.length)) {
+        toast(t("planEdit.needStep"));
+        return;
+      }
       if (plan) {
         Object.assign(plan, {
           emoji: draft.emoji,
           name,
           trigger: trigger || t("planEdit.unnamedTrigger"),
-          steps
+          actionPlans
         });
         /* Edited plans keep the user's wording; stop rebinding to template locale */
         delete plan.templateId;
@@ -554,7 +662,7 @@ function renderPlanEdit(planId) {
           emoji: draft.emoji,
           name,
           trigger: trigger || t("planEdit.unnamedTrigger"),
-          steps,
+          actionPlans,
           createdAt: Date.now()
         });
       }
@@ -578,12 +686,19 @@ function renderPlanEdit(planId) {
   function syncDraft() {
     draft.name = $("#pe-name")?.value ?? draft.name;
     draft.trigger = $("#pe-trigger")?.value ?? draft.trigger;
-    $$("[data-step-input]").forEach(inp => { draft.steps[+inp.dataset.stepInput] = inp.value; });
+    $$("[data-action-plan-name]").forEach(input => {
+      draft.actionPlans[+input.dataset.actionPlanName].name = input.value;
+    });
+    $$("[data-action-plan-step]").forEach(input => {
+      const [actionPlanIndex, stepIndex] = input.dataset.actionPlanStep.split(":").map(Number);
+      draft.actionPlans[actionPlanIndex].steps[stepIndex] = input.value;
+    });
   }
 
   function bindDraftInputs() {
     ["pe-name", "pe-trigger"].forEach(id => $("#" + id)?.addEventListener("input", syncDraft));
-    $$("[data-step-input]").forEach(inp => inp.addEventListener("input", syncDraft));
+    $$("[data-action-plan-name], [data-action-plan-step]").forEach(input =>
+      input.addEventListener("input", syncDraft));
   }
 
   render();
@@ -636,7 +751,7 @@ function renderProgress() {
             <span class="tag ${r.outcome === "changed" ? "tag-changed" : "tag-followed"}">${r.outcome === "changed" ? t("progress.tag.changed") : t("progress.tag.followed")}</span>
           </div>
           <div class="rec-meta">
-            ${fmtDate(r.ts)}${r.planName ? " · " + esc(r.planName) : ""}${r.delayMin != null && r.outcome === "changed" ? t("progress.delayPrefix") + fmtDelay(r.delayMin) : ""}
+            ${fmtDate(r.ts)}${r.planName ? " · " + esc(r.planName) : ""}${r.actionPlanName ? " · " + esc(r.actionPlanName) : ""}${r.delayMin != null && r.outcome === "changed" ? t("progress.delayPrefix") + fmtDelay(r.delayMin) : ""}
           </div>
           ${r.helpedStep ? `<div class="rec-note">${t("progress.helped")}${esc(r.helpedStep)}</div>` : ""}
           ${r.note ? `<div class="rec-note">"${esc(r.note)}"</div>` : ""}
@@ -770,6 +885,7 @@ function importData(e) {
         records: d.records.length
       }))) return;
       DB = Object.assign(structuredClone(DEFAULT_DATA), d, { onboarded: true });
+      migrateData();
       saveData();
       nav("progress");
       toast(t("progress.imported"));
@@ -784,5 +900,6 @@ function importData(e) {
 /* ---------------- Boot ---------------- */
 
 initLang();
+migrateData();
 updateTabbar();
 DB.onboarded ? nav("home") : renderOnboarding(0);
