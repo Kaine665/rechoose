@@ -6,6 +6,13 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKScriptM
 
     override func loadView() {
         let contentController = WKUserContentController()
+        contentController.addUserScript(
+            WKUserScript(
+                source: "window.__RECHOOSE_PLATFORM__ = 'ios';",
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
         contentController.add(self, name: "exportBackup")
         contentController.add(self, name: "haptic")
 

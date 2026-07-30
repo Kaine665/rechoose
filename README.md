@@ -57,6 +57,9 @@ If landing and app use different domains, set the app URL before `main.js`:
 
 - Data stays in `localStorage` (export / import backups)
 - PWA + Service Worker scoped under `/app/`
+- Shared application core: `app/js/core/`
+- Platform capabilities: `app/js/platform.js`; the native container explicitly selects `ios`
+- Platform design systems: `app/css/web.css` and `app/css/ios.css`
 - i18n: `app/js/i18n.js` — English-first; only primary `zh*` becomes Chinese; iOS defaults to `en`
 - Native iOS wrapper: `npm install && npm run ios:sync`
 - The Capacitor CLI is used only to copy web assets; the shipping app links only Apple SDK frameworks.
@@ -81,9 +84,19 @@ landing/
 
 app/
   index.html
-  css/style.css
-  js/i18n.js
-  js/app.js
+  css/
+    base.css
+    web.css
+    ios.css
+  js/
+    core/
+      data.js
+      format.js
+    ui/
+      primitives.js
+    platform.js
+    i18n.js
+    app.js
   sw.js
   manifest.json
   vercel.json          # SW / manifest headers when Root=app

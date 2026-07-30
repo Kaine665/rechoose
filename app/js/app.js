@@ -1,165 +1,5 @@
-/* =====================================================
-   Rechoose — choose when clear, act when it counts.
-   Zero dependencies. Data stays in localStorage.
-   ===================================================== */
+/* Rechoose application flow and screen renderers. */
 "use strict";
-
-/* ---------------- Data ---------------- */
-
-const STORE_KEY = "rechoose.data.v1";
-
-const DEFAULT_DATA = {
-  version: 1,
-  onboarded: false,
-  createdAt: Date.now(),
-  plans: [],
-  records: []
-};
-
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return structuredClone(DEFAULT_DATA);
-    const d = JSON.parse(raw);
-    if (!d || typeof d !== "object") return structuredClone(DEFAULT_DATA);
-    return Object.assign(structuredClone(DEFAULT_DATA), d);
-  } catch (e) {
-    return structuredClone(DEFAULT_DATA);
-  }
-}
-
-function saveData() {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(DB));
-  } catch (e) {
-    toast(t("common.saveFailed"));
-  }
-}
-
-function nativeHaptic(style = "light") {
-  try {
-    window.webkit?.messageHandlers?.haptic?.postMessage(style);
-  } catch (_) { /* Web and unsupported native containers stay silent */ }
-}
-
-let DB = loadData();
-
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-const TEMPLATE_IDS = ["night", "phone", "mood", "morning"];
-
-function getTemplates() {
-  return TEMPLATE_IDS.map(id => ({
-    id,
-    emoji: ({ night: "🌙", phone: "📱", mood: "😔", morning: "🌅" })[id],
-    name: t(`tpl.${id}.name`),
-    trigger: t(`tpl.${id}.trigger`),
-    desc: t(`tpl.${id}.desc`),
-    steps: [1, 2, 3].map(n => t(`tpl.${id}.step${n}`))
-  }));
-}
-
-function getFallbackPlan() {
-  return {
-    id: "__fallback__",
-    emoji: "🛟",
-    name: t("fallback.name"),
-    trigger: t("fallback.trigger"),
-    steps: [1, 2, 3, 4].map(n => t(`fallback.step${n}`))
-  };
-}
-
-function planFromTemplate(tpl) {
-  return {
-    id: uid(),
-    templateId: tpl.id,
-    emoji: tpl.emoji,
-    name: tpl.name,
-    trigger: tpl.trigger,
-    steps: [...tpl.steps],
-    createdAt: Date.now()
-  };
-}
-
-/* Template-based plans re-resolve copy so language switches stay in sync */
-function localizePlan(plan) {
-  if (!plan) return plan;
-  if (plan.id === "__fallback__") return getFallbackPlan();
-  if (!plan.templateId) return plan;
-  const tpl = getTemplates().find(x => x.id === plan.templateId);
-  if (!tpl) return plan;
-  return {
-    ...plan,
-    emoji: tpl.emoji,
-    name: tpl.name,
-    trigger: tpl.trigger,
-    steps: [...tpl.steps]
-  };
-}
-
-/* ---------------- Utils ---------------- */
-
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const app = $("#app");
-const tabbar = $("#tabbar");
-
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  })[c]);
-}
-
-let toastTimer = null;
-function toast(msg) {
-  $(".toast")?.remove();
-  const el = document.createElement("div");
-  el.className = "toast";
-  el.textContent = msg;
-  document.body.appendChild(el);
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.remove(), 2400);
-}
-
-function fmtDate(ts) {
-  const d = new Date(ts);
-  if (getLang() === "zh") {
-    const now = new Date();
-    const sameYear = d.getFullYear() === now.getFullYear();
-    const m = d.getMonth() + 1, day = d.getDate();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${sameYear ? "" : d.getFullYear() + "年"}${m}月${day}日 ${hh}:${mm}`;
-  }
-  return d.toLocaleString("en-US", {
-    month: "short", day: "numeric",
-    hour: "numeric", minute: "2-digit"
-  });
-}
-
-function fmtDelay(min) {
-  if (min == null) return "";
-  if (min < 1) return t("delay.underOne");
-  if (min < 60) return t("delay.minutes", { n: Math.round(min) });
-  return t("delay.hoursMinutes", {
-    h: Math.floor(min / 60),
-    m: Math.round(min % 60)
-  });
-}
-
-function dayKey(ts) {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 5) return t("greet.lateNight");
-  if (h < 11) return t("greet.morning");
-  if (h < 14) return t("greet.noon");
-  if (h < 18) return t("greet.afternoon");
-  return t("greet.evening");
-}
 
 function onLangChange() {
   updateTabbar();
@@ -296,14 +136,10 @@ function renderHome() {
         <button class="help-btn" id="btn-help">${t("home.helpBtn")}</button>
         ${todayLine ? `<div style="margin-top:28px"><span class="today-line">${todayLine}</span></div>` : ""}
       </div>
-      <div class="home-secondary stack">
-        <button class="btn btn-ghost btn-block" id="btn-retro">${t("home.retro")}</button>
-      </div>
       <p class="home-note">${t("home.privacy")}</p>
     </div>`;
 
-  $("#btn-help").addEventListener("click", () => startHelp(false));
-  $("#btn-retro").addEventListener("click", () => startHelp(true));
+  $("#btn-help").addEventListener("click", startHelp);
 }
 
 /* ---------------- Help flow ---------------- */
@@ -314,14 +150,14 @@ const help = {
   timerInt: null,
   plan: null,
   doneSteps: new Set(),
-  retro: false
+  recordOnly: false
 };
 
-function startHelp(retro) {
+function startHelp() {
   help.startTs = Date.now();
   help.plan = null;
   help.doneSteps = new Set();
-  help.retro = retro;
+  help.recordOnly = false;
 
   const el = document.createElement("div");
   el.className = "help-overlay";
@@ -338,18 +174,16 @@ function startHelp(retro) {
 
   $("#help-exit", el).addEventListener("click", closeHelp);
 
-  if (!retro) {
-    help.timerInt = setInterval(() => {
-      const s = Math.floor((Date.now() - help.startTs) / 1000);
-      const timerEl = $("#help-timer", el);
-      if (timerEl) {
-        timerEl.textContent =
-          `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-      }
-    }, 1000);
-  }
+  help.timerInt = setInterval(() => {
+    const s = Math.floor((Date.now() - help.startTs) / 1000);
+    const timerEl = $("#help-timer", el);
+    if (timerEl) {
+      timerEl.textContent =
+        `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }
+  }, 1000);
 
-  retro ? helpOutcome() : helpArrive();
+  helpPickPlan();
 }
 
 function closeHelp() {
@@ -366,83 +200,56 @@ function helpBody(html) {
   return body;
 }
 
-function helpArrive() {
-  const body = helpBody(`
-    <div class="help-title">${t("help.arrive.title")}</div>
-    <div class="help-sub">${t("help.arrive.sub")}</div>
-    <div class="spacer"></div>
-    <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-breathe">${t("help.arrive.breathe")}</button>
-      <button class="btn btn-calm-ghost btn-block" id="h-skip">${t("help.arrive.skip")}</button>
-    </div>`);
-  $("#h-breathe", body).addEventListener("click", helpBreathe);
-  $("#h-skip", body).addEventListener("click", helpPickPlan);
-}
-
-function helpBreathe() {
-  const body = helpBody(`
-    <div class="breath-wrap">
-      <div class="breath-circle"></div>
-      <div class="breath-text" id="breath-text">${t("help.breath.inhale")}</div>
-    </div>
-    <div class="help-sub" id="breath-count">${t("help.breath.hint")}</div>
-    <div class="spacer"></div>
-    <div class="help-actions">
-      <button class="btn btn-calm btn-block" id="h-next">${t("help.breath.next")}</button>
-    </div>`);
-
-  let phase = 0;
-  const textEl = $("#breath-text", body);
-  const breathInt = setInterval(() => {
-    if (!document.body.contains(textEl)) { clearInterval(breathInt); return; }
-    phase = (phase + 1) % 2;
-    textEl.textContent = phase === 0 ? t("help.breath.inhale") : t("help.breath.exhale");
-  }, 4000);
-
-  let rounds = 0;
-  const countEl = $("#breath-count", body);
-  const roundInt = setInterval(() => {
-    if (!document.body.contains(countEl)) { clearInterval(roundInt); return; }
-    rounds++;
-    countEl.textContent = t("help.breath.rounds", { n: rounds });
-  }, 8000);
-
-  $("#h-next", body).addEventListener("click", () => {
-    clearInterval(breathInt);
-    clearInterval(roundInt);
-    helpPickPlan();
-  });
-}
-
 function helpPickPlan() {
-  const plans = DB.plans.length ? DB.plans : [];
-  const fallback = getFallbackPlan();
+  const plans = DB.plans.map(localizePlan);
+  const usedTemplateIds = new Set(DB.plans.map(p => p.templateId).filter(Boolean));
+  const templates = getTemplates().filter(tpl => !usedTemplateIds.has(tpl.id));
   const body = helpBody(`
     <div class="help-title">${t("help.pick.title")}</div>
     <div class="help-sub">${t("help.pick.sub")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
-      ${plans.map(raw => {
-        const p = localizePlan(raw);
-        return `
+      ${plans.length ? `
+        <div class="help-choice-label">${t("help.pick.saved")}</div>
+        ${plans.map(p => `
         <button class="plan-pick" data-plan="${p.id}">
           <div class="pp-name">${p.emoji} ${esc(p.name)}</div>
           <div class="pp-trigger">${t("common.triggerPrefix")}${esc(p.trigger)}</div>
-        </button>`;
-      }).join("")}
-      <button class="plan-pick" data-plan="__fallback__">
-        <div class="pp-name">${fallback.emoji} ${t("fallback.option")}</div>
-        <div class="pp-trigger">${t("fallback.optionSub")}</div>
+        </button>`).join("")}` : ""}
+      ${templates.length ? `
+        <div class="help-choice-label">${t("help.pick.templates")}</div>
+        ${templates.map(tpl => `
+        <button class="plan-pick" data-template="${tpl.id}">
+          <div class="pp-name">${tpl.emoji} ${esc(tpl.name)}</div>
+          <div class="pp-trigger">${t("common.triggerPrefix")}${esc(tpl.trigger)}</div>
+        </button>`).join("")}` : ""}
+      <div class="help-choice-label">${t("help.pick.noPlan")}</div>
+      <button class="plan-pick plan-pick-record" id="h-record">
+        <div class="pp-name">${t("help.pick.record")}</div>
+        <div class="pp-trigger">${t("help.pick.recordSub")}</div>
       </button>
     </div>`);
 
   $$("[data-plan]", body).forEach(btn => btn.addEventListener("click", () => {
-    const id = btn.dataset.plan;
-    help.plan = id === "__fallback__"
-      ? getFallbackPlan()
-      : localizePlan(DB.plans.find(p => p.id === id));
+    help.plan = localizePlan(DB.plans.find(p => p.id === btn.dataset.plan));
     helpSteps();
   }));
+
+  $$("[data-template]", body).forEach(btn => btn.addEventListener("click", () => {
+    const tpl = getTemplates().find(item => item.id === btn.dataset.template);
+    if (!tpl) return;
+    help.plan = { ...tpl, id: `__template__${tpl.id}` };
+    helpSteps();
+  }));
+
+  $("#h-record", body).addEventListener("click", () => {
+    help.recordOnly = true;
+    help.plan = null;
+    clearInterval(help.timerInt);
+    const timerEl = $("#help-timer", help.overlay);
+    if (timerEl) timerEl.textContent = "";
+    helpOutcome();
+  });
 }
 
 function helpSteps() {
@@ -470,9 +277,9 @@ function helpSteps() {
     } else {
       help.doneSteps.add(i);
       btn.classList.add("done");
-      nativeHaptic("light");
+      Platform.haptic("light");
       if (help.doneSteps.size === p.steps.length) {
-        nativeHaptic("success");
+        Platform.haptic("success");
         toast(t("help.steps.allDone"));
       }
     }
@@ -483,13 +290,13 @@ function helpSteps() {
 
 function helpOutcome() {
   const body = helpBody(`
-    <div class="help-title">${help.retro ? t("help.outcome.titleRetro") : t("help.outcome.title")}</div>
+    <div class="help-title">${help.recordOnly ? t("help.outcome.titleRecord") : t("help.outcome.title")}</div>
     <div class="help-sub">${t("help.outcome.sub")}</div>
     <div class="spacer"></div>
     <div class="help-actions">
       <button class="outcome-btn" data-outcome="changed">
         <div class="ob-title">${t("help.outcome.changed")}</div>
-        <div class="ob-sub">${t("help.outcome.changedSub")}</div>
+        <div class="ob-sub">${t(help.recordOnly ? "help.outcome.changedSubRecord" : "help.outcome.changedSub")}</div>
       </button>
       <button class="outcome-btn" data-outcome="followed">
         <div class="ob-title">${t("help.outcome.followed")}</div>
@@ -536,7 +343,7 @@ function helpDetail(outcome) {
   }));
 
   $("#h-save", body).addEventListener("click", () => {
-    const delayMin = help.retro ? null : (Date.now() - help.startTs) / 60000;
+    const delayMin = help.recordOnly ? null : (Date.now() - help.startTs) / 60000;
     DB.records.push({
       id: uid(),
       ts: Date.now(),
@@ -557,7 +364,7 @@ function helpClose(outcome, delayMin) {
   const total = DB.records.length;
   const changed = DB.records.filter(r => r.outcome === "changed").length;
 
-  const statHtml = (!help.retro && delayMin != null && outcome === "changed")
+  const statHtml = (!help.recordOnly && delayMin != null && outcome === "changed")
     ? `<div class="close-stat">
          <div class="cs-num">${fmtDelay(delayMin)}</div>
          <div class="cs-label">${t("help.close.delayLabel")}</div>
@@ -931,11 +738,8 @@ function exportData() {
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const filename = `${t("progress.exportName")}-${stamp}.json`;
   const content = JSON.stringify(DB, null, 2);
-  const nativeExporter = window.webkit?.messageHandlers?.exportBackup;
-
-  if (nativeExporter) {
-    nativeExporter.postMessage({ filename, content });
-    nativeHaptic("success");
+  if (Platform.exportBackup(filename, content)) {
+    Platform.haptic("success");
     toast(t("progress.exported"));
     return;
   }

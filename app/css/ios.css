@@ -1,0 +1,93 @@
+/* iOS design system: safe areas, Apple typography, touch controls, and flat surfaces. */
+
+[data-platform="ios"] {
+  --bg: #f2f2f7;
+  --bg-soft: #e9e9ee;
+  --card: #ffffff;
+  --line: #d8d8dc;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow: none;
+  --calm-bg: #1c1c1e;
+  --calm-card: #2c2c2e;
+}
+
+[data-platform="ios"] body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    sans-serif;
+  overscroll-behavior-y: none;
+}
+
+[data-platform="ios"] #app {
+  max-width: 560px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+[data-platform="ios"] button,
+[data-platform="ios"] input,
+[data-platform="ios"] textarea {
+  font-size: max(16px, 1em);
+}
+
+[data-platform="ios"] .page-title {
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+}
+
+[data-platform="ios"] .card,
+[data-platform="ios"] .stat-card {
+  border-color: rgba(60, 60, 67, .18);
+  box-shadow: none;
+}
+
+[data-platform="ios"] .btn {
+  min-height: 50px;
+  border-radius: 12px;
+}
+
+[data-platform="ios"] .tabbar {
+  background: rgba(249, 249, 249, .94);
+  border-top-color: rgba(60, 60, 67, .24);
+  padding-top: 6px;
+}
+
+[data-platform="ios"] .tab {
+  min-width: 72px;
+  padding: 4px 12px;
+  border-radius: 10px;
+}
+
+[data-platform="ios"] .help-inner {
+  max-width: 560px;
+  padding-top: calc(12px + var(--safe-top));
+}
+
+[data-platform="ios"] .plan-pick,
+[data-platform="ios"] .step-item,
+[data-platform="ios"] .outcome-btn {
+  border-width: 1px;
+  border-radius: 14px;
+}
+
+[data-platform="ios"] .toast {
+  bottom: calc(92px + var(--safe-bottom));
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-platform="ios"] {
+    --bg: #000000;
+    --bg-soft: #1c1c1e;
+    --card: #1c1c1e;
+    --ink: #f2f2f7;
+    --ink-soft: #aeaeb2;
+    --ink-faint: #8e8e93;
+    --line: #38383a;
+    --green-soft: #263526;
+  }
+
+  [data-platform="ios"] .tabbar {
+    background: rgba(28, 28, 30, .94);
+  }
+}
